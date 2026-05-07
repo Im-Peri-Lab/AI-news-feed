@@ -18,13 +18,13 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
   const [showShareMenu, setShowShareMenu] = useState(false);
   const copyMenuRef = useRef<HTMLDivElement>(null);
   const shareMenuRef = useRef<HTMLDivElement>(null);
-  const kakaoButtonRef = useRef<HTMLButtonElement>(null);
 
   const displayTime = format(new Date(article.publishedAt), 'yyyy.MM.dd HH:mm', { locale: ko });
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
   const kakaoShareText = `${article.title}\n${article.source} · ${displayTime}`;
+  const KAKAO_APP_KEY = '0dbe9648057ad88c3d6de74a0451de72';
 
   useEffect(() => {
     onMenuToggle?.(showCopyMenu || showShareMenu);
@@ -43,25 +43,26 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (!showShareMenu || isMobile) return;
-    const Kakao = (window as any).Kakao;
-    if (!Kakao?.isInitialized() || !kakaoButtonRef.current) return;
-    const link = { mobileWebUrl: redirectUrl, webUrl: redirectUrl };
-    Kakao.Share.createDefaultButton({
-      container: kakaoButtonRef.current,
-      objectType: 'text',
-      text: kakaoShareText,
-      link,
-      buttons: [{ title: '원문 보기', link }],
-    });
-  }, [showShareMenu]);
 
   const handleCopy = (mode: 'url' | 'both') => {
     const text = mode === 'url' ? article.url : `${article.title}\n${article.url}`;
     navigator.clipboard.writeText(text);
     alert('복사되었습니다.');
     setShowCopyMenu(false);
+  };
+
+  const handleKakaoPcShare = () => {
+    const link = { mobile_web_url: redirectUrl, web_url: redirectUrl };
+    const templateObject = JSON.stringify({
+      object_type: 'text',
+      text: kakaoShareText,
+      link,
+      buttons: [{ title: '원문 보기', link }],
+    });
+    const url = `https://sharer.kakao.com/talk/friends/picker/link?app_key=${KAKAO_APP_KEY}&link_ver=4.0&template_object=${encodeURIComponent(templateObject)}&ga=false`;
+    // Must use window.open with popup dimensions so window.opener is set (required by sharer.kakao.com)
+    window.open(url, 'kakaoShare', 'width=450,height=650,left=200,top=100');
+    setShowShareMenu(false);
   };
 
   const handleKakaoShare = () => {
@@ -207,7 +208,7 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
                 </button>
               ) : (
                 <button
-                  ref={kakaoButtonRef}
+                  onClick={handleKakaoPcShare}
                   className="w-full text-left px-4 py-3.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-3 mb-1"
                 >
                   <div className="w-6 h-6 shrink-0 shadow-sm overflow-hidden rounded-lg flex items-center justify-center bg-[#FEE500]">
