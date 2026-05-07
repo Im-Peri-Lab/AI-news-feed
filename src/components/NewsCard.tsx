@@ -45,41 +45,30 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
     setShowCopyMenu(false);
   };
 
-  const handleShare = async (target: 'kakao' | 'teams') => {
-    if (target === 'kakao') {
-      const Kakao = (window as any).Kakao;
-      if (Kakao && Kakao.isInitialized()) {
-        const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
-        const content: Record<string, unknown> = {
-          title: article.title,
-          description: `${article.source} · ${displayTime}`,
-          link: {
-            mobileWebUrl: redirectUrl,
-            webUrl: redirectUrl,
-          },
-        };
-        if (article.imageUrl) content.imageUrl = article.imageUrl;
-
-        Kakao.Share.sendDefault({
-          objectType: 'feed',
-          content,
-          buttons: [{
-            title: '원문 보기',
-            link: {
-              mobileWebUrl: redirectUrl,
-              webUrl: redirectUrl,
-            },
-          }],
-        });
-      } else {
-        alert('카카오 SDK가 초기화되지 않았습니다.');
-      }
-    } else {
-      const teamsText = `${article.title}\n${article.url}`;
-      const teamsUrl = `https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(teamsText)}`;
-      window.open(teamsUrl, '_blank');
-    }
+  const handleKakaoShare = () => {
     setShowShareMenu(false);
+    const Kakao = (window as any).Kakao;
+    if (!Kakao || !Kakao.isInitialized()) {
+      alert('카카오 SDK가 초기화되지 않았습니다.');
+      return;
+    }
+    try {
+      const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
+      const content: Record<string, unknown> = {
+        title: article.title,
+        description: `${article.source} · ${displayTime}`,
+        link: { mobileWebUrl: redirectUrl, webUrl: redirectUrl },
+      };
+      if (article.imageUrl) content.imageUrl = article.imageUrl;
+      Kakao.Share.sendDefault({
+        objectType: 'feed',
+        content,
+        buttons: [{ title: '원문 보기', link: { mobileWebUrl: redirectUrl, webUrl: redirectUrl } }],
+      });
+    } catch (e) {
+      console.error('Kakao share error:', e);
+      alert('카카오 공유 중 오류가 발생했습니다.');
+    }
   };
 
   return (
@@ -197,8 +186,8 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
               <h3 className="text-sm font-black text-gray-900 dark:text-white">기사 공유하기</h3>
             </div>
             <div className="p-2">
-              <button 
-                onClick={() => handleShare('kakao')}
+              <button
+                onClick={handleKakaoShare}
                 className="w-full text-left px-4 py-3.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-3 mb-1"
               >
                 <div className="w-6 h-6 shrink-0 shadow-sm overflow-hidden rounded-lg flex items-center justify-center bg-[#FEE500]">
@@ -208,8 +197,11 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
                 </div>
                 카카오톡 공유
               </button>
-              <button 
-                onClick={() => handleShare('teams')}
+              <a
+                href={`https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(`${article.title}\n${article.url}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setShowShareMenu(false)}
                 className="w-full text-left px-4 py-3.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-3"
               >
                 <div className="w-6 h-6 shrink-0 shadow-sm overflow-hidden rounded-lg flex items-center justify-center bg-[#4B53BC]">
@@ -218,7 +210,7 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
                   </svg>
                 </div>
                 Teams 공유
-              </button>
+              </a>
             </div>
             <button 
               onClick={() => setShowShareMenu(false)}
