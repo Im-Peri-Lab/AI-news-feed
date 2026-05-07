@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "api/news.ts": { "maxDuration": 30 },
+    "api/fetch.ts": { "maxDuration": 30 }
+  },
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}
