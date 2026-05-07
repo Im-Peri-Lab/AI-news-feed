@@ -42,6 +42,7 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
   const shareWrapRef = useRef<HTMLDivElement>(null);
 
   const displayTime = format(new Date(article.publishedAt), 'yyyy.MM.dd HH:mm', { locale: ko });
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
   const kakaoShareText = `${article.title}\n${article.source} · ${displayTime}`;
 
@@ -158,10 +159,12 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
                 <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-[200] animate-in fade-in zoom-in-95 duration-150 origin-top-right">
                   <p className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">공유하기</p>
                   <div className="p-1">
-                    <button onClick={handleKakaoShare} className={DROPDOWN_ITEM}>
-                      <KakaoIcon />
-                      카카오톡
-                    </button>
+                    {isMobile && (
+                      <button onClick={handleKakaoShare} className={DROPDOWN_ITEM}>
+                        <KakaoIcon />
+                        카카오톡
+                      </button>
+                    )}
                     <a
                       href={`https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(`${article.title}\n${article.url}`)}`}
                       target="_blank"
