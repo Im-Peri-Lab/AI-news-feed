@@ -76,6 +76,14 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
     if (!Kakao?.isInitialized()) { alert('카카오 SDK가 초기화되지 않았습니다.'); return; }
     const link = { mobileWebUrl: redirectUrl, webUrl: redirectUrl };
     const buttons = [{ title: '원문 보기', link }];
+
+    // SDK calls window.open after async domain validation, so null.focus() errors
+    // from popup blocking are uncatchable via try-catch. Suppress them globally.
+    const suppressKakaoPopupError = (e: ErrorEvent) => {
+      if (e.message?.includes('focus')) { e.preventDefault(); }
+    };
+    window.addEventListener('error', suppressKakaoPopupError, { once: true });
+
     try {
       Kakao.Share.sendDefault(
         article.imageUrl
@@ -83,6 +91,7 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
           : { objectType: 'text', text: kakaoShareText, link, buttons }
       );
     } catch (e: unknown) {
+      window.removeEventListener('error', suppressKakaoPopupError);
       const msg = e instanceof Error ? e.message : '';
       if (msg.includes('focus')) {
         alert('팝업이 차단되었습니다.\n\n주소창 오른쪽의 팝업 차단 아이콘을 클릭하여\n이 사이트의 팝업을 허용한 후 다시 시도해주세요.');
@@ -170,7 +179,10 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
                       href={`https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(`${article.title}\n${article.url}`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={() => setShowShareMenu(false)}
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${article.title}\n${article.url}`).catch(() => {});
+                        setShowShareMenu(false);
+                      }}
                       className={DROPDOWN_ITEM}
                     >
                       <TeamsIcon />
