@@ -194,11 +194,10 @@ export default async function handler(req: any, res: any) {
     const todayKst = getKstDateStr(new Date());
     const targetDate = typeof req.query.date === 'string' ? req.query.date : todayKst;
 
-    // Use the minimum RSS window that covers the target date.
-    // Today → when:1d (max articles), yesterday → when:2d, etc. Cap at 7d.
+    // Google News RSS supports when:1d (today) and when:7d (past dates).
+    // Intermediate values like when:2d are not reliably supported.
     const daysAgo = daysAgoFromToday(targetDate, todayKst);
-    const windowDays = Math.min(daysAgo + 1, 7);
-    const whenParam = `when:${windowDays}d`;
+    const whenParam = daysAgo === 0 ? 'when:1d' : 'when:7d';
 
     const queries = BASE_QUERIES.map(q => `${q} ${whenParam}`);
     const articles = await fetchAllNews(queries);
@@ -207,7 +206,20 @@ export default async function handler(req: any, res: any) {
       .filter(a => a.publishedDate === targetDate)
       .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
-    res.json({ total: filtered.length, articles: filtered });
+    const dateSample = [...new Set(articles.map(a => a.publishedDate))].sort();
+
+    res.json({
+      total: filtered.length,
+      articles: filtered,
+      _debug: {
+        todayKst,
+        targetDate,
+        daysAgo,
+        whenParam,
+        totalFetched: articles.length,
+        datesInRss: dateSample,
+      },
+    });
   } catch (e: any) {
     console.error('GET /api/news error:', e);
     res.status(500).json({ error: 'Internal server error' });
