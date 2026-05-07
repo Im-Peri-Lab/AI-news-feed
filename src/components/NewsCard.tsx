@@ -68,23 +68,45 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
     setShowCopyMenu(false);
   };
 
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
   const handleKakaoShare = () => {
     setShowShareMenu(false);
-    const Kakao = (window as any).Kakao;
-    if (!Kakao?.isInitialized()) { alert('카카오 SDK가 초기화되지 않았습니다.'); return; }
-    const link = { mobileWebUrl: redirectUrl, webUrl: redirectUrl };
-    const buttons = [{ title: '원문 보기', link }];
-    try {
-      Kakao.Share.sendDefault(
-        article.imageUrl
-          ? { objectType: 'feed', content: { title: article.title, description: `${article.source} · ${displayTime}`, imageUrl: article.imageUrl, link }, buttons }
-          : { objectType: 'text', text: kakaoShareText, link, buttons }
-      );
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '';
-      if (msg.includes('focus')) {
-        alert('팝업이 차단되었습니다.\n\n주소창 오른쪽의 팝업 차단 아이콘을 클릭하여\n이 사이트의 팝업을 허용한 후 다시 시도해주세요.');
+    if (isMobile) {
+      const Kakao = (window as any).Kakao;
+      if (!Kakao?.isInitialized()) { alert('카카오 SDK가 초기화되지 않았습니다.'); return; }
+      const link = { mobileWebUrl: redirectUrl, webUrl: redirectUrl };
+      const buttons = [{ title: '원문 보기', link }];
+      try {
+        Kakao.Share.sendDefault(
+          article.imageUrl
+            ? { objectType: 'feed', content: { title: article.title, description: `${article.source} · ${displayTime}`, imageUrl: article.imageUrl, link }, buttons }
+            : { objectType: 'text', text: kakaoShareText, link, buttons }
+        );
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : '';
+        if (msg.includes('focus')) {
+          alert('팝업이 차단되었습니다.\n\n주소창 오른쪽의 팝업 차단 아이콘을 클릭하여\n이 사이트의 팝업을 허용한 후 다시 시도해주세요.');
+        }
       }
+    } else {
+      const KAKAO_APP_KEY = '0dbe9648057ad88c3d6de74a0451de72';
+      const templateObject: Record<string, unknown> = {
+        object_type: 'feed',
+        content: {
+          title: article.title,
+          description: `${article.source} · ${displayTime}`,
+          link: { web_url: redirectUrl, mobile_web_url: redirectUrl },
+          ...(article.imageUrl ? { image_url: article.imageUrl } : {}),
+        },
+        buttons: [{ title: '원문 보기', link: { web_url: redirectUrl, mobile_web_url: redirectUrl } }],
+      };
+      const params = encodeURIComponent(JSON.stringify({ link_ver: '4.0', template_object: templateObject }));
+      window.open(
+        `https://sharer.kakao.com/talk/friends/picker/easylink?app_key=${KAKAO_APP_KEY}&validation_action=default&validation_params=${params}`,
+        'kakaoShare',
+        'width=400,height=600,scrollbars=yes'
+      );
     }
   };
 
