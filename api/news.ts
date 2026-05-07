@@ -41,8 +41,8 @@ const TAGS = [
 ];
 
 const SEARCH_QUERIES = [
-  '(AI OR 인공지능 OR "생성형 AI") when:24h',
-  '(LLM OR "AI 에이전트" OR "AI 반도체" OR AX) when:24h',
+  '(AI OR 인공지능 OR "생성형 AI") when:7d',
+  '(LLM OR "AI 에이전트" OR "AI 반도체" OR AX) when:7d',
 ];
 
 const USER_AGENTS = [
