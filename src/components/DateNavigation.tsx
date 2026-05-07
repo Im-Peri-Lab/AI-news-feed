@@ -45,7 +45,8 @@ export default function DateNavigation({
               type="date"
               value={format(currentDate, 'yyyy-MM-dd')}
               onChange={(e) => {
-                if (e.target.value) setCurrentDate(new Date(e.target.value));
+                // 'YYYY-MM-DD' parsed as UTC midnight — append T00:00:00 to force local time
+                if (e.target.value) setCurrentDate(new Date(e.target.value + 'T00:00:00'));
               }}
               max={format(new Date(), 'yyyy-MM-dd')}
               className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"

@@ -74,6 +74,8 @@ function processArticle(item: any) {
     '';
   const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
   const safePubDate = Number.isNaN(pubDate.getTime()) ? new Date() : pubDate;
+  // Vercel runs in UTC; shift to KST (UTC+9) so publishedDate matches Korean calendar
+  const kstDate = new Date(safePubDate.getTime() + 9 * 60 * 60 * 1000);
 
   const tags: string[] = [];
   const categories: string[] = [];
@@ -97,7 +99,7 @@ function processArticle(item: any) {
     imageUrl,
     source,
     publishedAt: safePubDate.toISOString(),
-    publishedDate: format(safePubDate, 'yyyy-MM-dd'),
+    publishedDate: format(kstDate, 'yyyy-MM-dd'),
     tags,
     categories,
     matchedTerms,
