@@ -47,45 +47,19 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
 
   const handleKakaoShare = () => {
     setShowShareMenu(false);
-
-    const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
-    const shareText = `${article.title}\n${article.source} · ${displayTime}`;
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-    if (isMobile) {
-      // 모바일: SDK가 KakaoTalk 앱 딥링크로 처리
-      const Kakao = (window as any).Kakao;
-      if (!Kakao?.isInitialized()) { alert('카카오 SDK가 초기화되지 않았습니다.'); return; }
-      const link = { mobileWebUrl: redirectUrl, webUrl: redirectUrl };
-      const buttons = [{ title: '원문 보기', link }];
-      try {
-        Kakao.Share.sendDefault(
-          article.imageUrl
-            ? { objectType: 'feed', content: { title: article.title, description: `${article.source} · ${displayTime}`, imageUrl: article.imageUrl, link }, buttons }
-            : { objectType: 'text', text: shareText, link, buttons }
-        );
-      } catch (e) { console.error('[Kakao] share error:', e); }
+    const Kakao = (window as any).Kakao;
+    if (!Kakao?.isInitialized()) {
+      alert('카카오 SDK가 초기화되지 않았습니다.');
       return;
     }
-
-    // PC: Kakao SDK는 초기화 시 window.open 참조를 저장하므로 런타임 교체로 인터셉트 불가.
-    // sharer.kakao.com URL을 직접 구성해 window.open 호출.
-    // 클릭 핸들러 최초 호출이므로 팝업 차단 없음.
-    const KAKAO_APP_KEY = '0dbe9648057ad88c3d6de74a0451de72';
-    const templateObject = encodeURIComponent(JSON.stringify({
-      object_type: 'text',
-      text: shareText,
-      link: { mobile_web_url: redirectUrl, web_url: redirectUrl },
-      buttons: [{ title: '원문 보기', link: { mobile_web_url: redirectUrl, web_url: redirectUrl } }],
-    }));
-    const popup = window.open(
-      `https://sharer.kakao.com/talk/friends/picker/link?app_key=${KAKAO_APP_KEY}&link_ver=4.0&template_object=${templateObject}&ga=false`,
-      'kakaoShare',
-      'width=500,height=600,scrollbars=yes,resizable=yes'
+    const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
+    const link = { mobileWebUrl: redirectUrl, webUrl: redirectUrl };
+    const buttons = [{ title: '원문 보기', link }];
+    Kakao.Share.sendDefault(
+      article.imageUrl
+        ? { objectType: 'feed', content: { title: article.title, description: `${article.source} · ${displayTime}`, imageUrl: article.imageUrl, link }, buttons }
+        : { objectType: 'text', text: `${article.title}\n${article.source} · ${displayTime}`, link, buttons }
     );
-    if (!popup) {
-      alert('팝업이 차단되었습니다.\n브라우저 주소창의 팝업 차단 아이콘을 클릭해 허용해주세요.');
-    }
   };
 
   return (
