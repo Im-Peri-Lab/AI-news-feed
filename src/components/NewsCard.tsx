@@ -152,10 +152,11 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
 
       {/* Copy Modal Overlay */}
       {showCopyMenu && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div 
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div
             ref={copyMenuRef}
-            className="w-full max-w-[280px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
+            className="relative z-10 w-full max-w-[280px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
           >
             <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
               <h3 className="text-sm font-black text-gray-900 dark:text-white">링크 복사</h3>
@@ -186,10 +187,11 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
 
       {/* Share Modal Overlay */}
       {showShareMenu && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div 
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div
             ref={shareMenuRef}
-            className="w-full max-w-[280px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
+            className="relative z-10 w-full max-w-[280px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
           >
             <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
               <h3 className="text-sm font-black text-gray-900 dark:text-white">기사 공유하기</h3>
