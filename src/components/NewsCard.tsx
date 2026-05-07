@@ -49,12 +49,13 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
     if (target === 'kakao') {
       const Kakao = (window as any).Kakao;
       if (Kakao && Kakao.isInitialized()) {
+        const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
         const content: Record<string, unknown> = {
           title: article.title,
           description: `${article.source} · ${displayTime}`,
           link: {
-            mobileWebUrl: article.url,
-            webUrl: article.url,
+            mobileWebUrl: redirectUrl,
+            webUrl: redirectUrl,
           },
         };
         if (article.imageUrl) content.imageUrl = article.imageUrl;
@@ -65,8 +66,8 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
           buttons: [{
             title: '원문 보기',
             link: {
-              mobileWebUrl: article.url,
-              webUrl: article.url,
+              mobileWebUrl: redirectUrl,
+              webUrl: redirectUrl,
             },
           }],
         });
