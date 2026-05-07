@@ -18,19 +18,13 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
   const [showShareMenu, setShowShareMenu] = useState(false);
   const copyMenuRef = useRef<HTMLDivElement>(null);
   const shareMenuRef = useRef<HTMLDivElement>(null);
+  const kakaoButtonRef = useRef<HTMLButtonElement>(null);
 
   const displayTime = format(new Date(article.publishedAt), 'yyyy.MM.dd HH:mm', { locale: ko });
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
   const kakaoShareText = `${article.title}\n${article.source} · ${displayTime}`;
-  const KAKAO_APP_KEY = '0dbe9648057ad88c3d6de74a0451de72';
-  const kakaoPcShareUrl = `https://sharer.kakao.com/talk/friends/picker/link?app_key=${KAKAO_APP_KEY}&link_ver=4.0&template_object=${encodeURIComponent(JSON.stringify({
-    object_type: 'text',
-    text: kakaoShareText,
-    link: { mobile_web_url: redirectUrl, web_url: redirectUrl },
-    buttons: [{ title: '원문 보기', link: { mobile_web_url: redirectUrl, web_url: redirectUrl } }],
-  }))}&ga=false`;
 
   useEffect(() => {
     onMenuToggle?.(showCopyMenu || showShareMenu);
@@ -48,6 +42,20 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!showShareMenu || isMobile) return;
+    const Kakao = (window as any).Kakao;
+    if (!Kakao?.isInitialized() || !kakaoButtonRef.current) return;
+    const link = { mobileWebUrl: redirectUrl, webUrl: redirectUrl };
+    Kakao.Share.createDefaultButton({
+      container: kakaoButtonRef.current,
+      objectType: 'text',
+      text: kakaoShareText,
+      link,
+      buttons: [{ title: '원문 보기', link }],
+    });
+  }, [showShareMenu]);
 
   const handleCopy = (mode: 'url' | 'both') => {
     const text = mode === 'url' ? article.url : `${article.title}\n${article.url}`;
@@ -198,16 +206,8 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
                   카카오톡 공유
                 </button>
               ) : (
-                <a
-                  href={kakaoPcShareUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => {
-                    console.log('[Kakao PC] article.url:', article.url);
-                    console.log('[Kakao PC] redirectUrl:', redirectUrl);
-                    console.log('[Kakao PC] kakaoPcShareUrl:', kakaoPcShareUrl);
-                    setShowShareMenu(false);
-                  }}
+                <button
+                  ref={kakaoButtonRef}
                   className="w-full text-left px-4 py-3.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-3 mb-1"
                 >
                   <div className="w-6 h-6 shrink-0 shadow-sm overflow-hidden rounded-lg flex items-center justify-center bg-[#FEE500]">
@@ -216,7 +216,7 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
                     </svg>
                   </div>
                   카카오톡 공유
-                </a>
+                </button>
               )}
               <a
                 href={`https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(`${article.title}\n${article.url}`)}`}
