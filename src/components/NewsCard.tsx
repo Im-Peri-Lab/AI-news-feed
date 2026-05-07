@@ -8,13 +8,25 @@ import { useState, useRef, useEffect } from 'react';
 
 function KakaoIcon() {
   return (
-    <div className="w-6 h-6 shrink-0 shadow-sm overflow-hidden rounded-lg flex items-center justify-center bg-[#FEE500]">
-      <svg viewBox="0 0 48 48" className="w-full h-full p-1">
+    <div className="w-5 h-5 shrink-0 overflow-hidden rounded-md flex items-center justify-center bg-[#FEE500]">
+      <svg viewBox="0 0 48 48" className="w-full h-full p-0.5">
         <path d="M24 10c-8.837 0-16 5.671-16 12.667 0 4.542 3.056 8.52 7.643 10.74l-1.94 7.108c-.12.438.39.814.767.565l8.36-5.514c.386.046.777.068 1.17.068 8.837 0 16-5.671 16-12.667S32.837 10 24 10z" fill="#3C1E1E"/>
       </svg>
     </div>
   );
 }
+
+function TeamsIcon() {
+  return (
+    <div className="w-5 h-5 shrink-0 overflow-hidden rounded-md flex items-center justify-center bg-[#4B53BC]">
+      <svg viewBox="0 0 24 24" className="w-full h-full p-0.5">
+        <path fill="#FFF" d="M11.5 6.5s.5-.5 1.5-.5 1.5.5 1.5.5V11s1 0 1.5.5 1 2 1 2 .5 1 .5 2v3h-5.5v-3s0-1 .5-2 1.5-3 1.5-3H11v-4h.5zM7 9h4v8H7V9z"/>
+      </svg>
+    </div>
+  );
+}
+
+const DROPDOWN_ITEM = "w-full text-left px-3 py-2.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2.5";
 
 interface NewsCardProps {
   article: Article;
@@ -26,11 +38,10 @@ interface NewsCardProps {
 export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: NewsCardProps) {
   const [showCopyMenu, setShowCopyMenu] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
-  const copyMenuRef = useRef<HTMLDivElement>(null);
-  const shareMenuRef = useRef<HTMLDivElement>(null);
+  const copyWrapRef = useRef<HTMLDivElement>(null);
+  const shareWrapRef = useRef<HTMLDivElement>(null);
 
   const displayTime = format(new Date(article.publishedAt), 'yyyy.MM.dd HH:mm', { locale: ko });
-
   const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
   const kakaoShareText = `${article.title}\n${article.source} · ${displayTime}`;
 
@@ -40,25 +51,22 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (copyMenuRef.current && !copyMenuRef.current.contains(event.target as Node)) {
+      if (copyWrapRef.current && !copyWrapRef.current.contains(event.target as Node)) {
         setShowCopyMenu(false);
       }
-      if (shareMenuRef.current && !shareMenuRef.current.contains(event.target as Node)) {
+      if (shareWrapRef.current && !shareWrapRef.current.contains(event.target as Node)) {
         setShowShareMenu(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-
   const handleCopy = (mode: 'url' | 'both') => {
-    const text = mode === 'url' ? article.url : `${article.title}\n${article.url}`;
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(mode === 'url' ? article.url : `${article.title}\n${article.url}`);
     alert('복사되었습니다.');
     setShowCopyMenu(false);
   };
-
 
   const handleKakaoShare = () => {
     setShowShareMenu(false);
@@ -66,7 +74,7 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
     if (!Kakao?.isInitialized()) { alert('카카오 SDK가 초기화되지 않았습니다.'); return; }
 
     const onBlocked = () => {
-      alert('팝업이 차단되었습니다.\n\n주소창 오른쪽의 팝업 차단 아이콘을 클릭하여 허용한 후 다시 시도해주세요.');
+      alert('팝업이 차단되었습니다.\n주소창 오른쪽의 팝업 차단 아이콘을 클릭하여 허용한 후 다시 시도해주세요.');
     };
     window.addEventListener('kakao-popup-blocked', onBlocked, { once: true });
     setTimeout(() => window.removeEventListener('kakao-popup-blocked', onBlocked), 3000);
@@ -87,15 +95,12 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
       isLast && "rounded-b-2xl border-b-0"
     )}>
       <div className="flex flex-col gap-3">
-        {/* Top Info: Source + Time */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-brand uppercase tracking-wider">{article.source}</span>
-            <span className="w-0.5 h-0.5 bg-gray-300 dark:bg-gray-600 rounded-full"></span>
-            <span className="text-[10px] text-gray-400 font-medium">{displayTime}</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black text-brand uppercase tracking-wider">{article.source}</span>
+          <span className="w-0.5 h-0.5 bg-gray-300 dark:bg-gray-600 rounded-full" />
+          <span className="text-[10px] text-gray-400 font-medium">{displayTime}</span>
         </div>
-        
+
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-1.5 md:gap-4">
           <div className="flex-1">
             <h2 className="text-[16px] md:text-xl font-extrabold leading-[1.4] tracking-tight text-gray-900 dark:text-white mb-2 md:mb-3">
@@ -106,19 +111,12 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
                 <ExternalLink className="w-3.5 h-3.5 md:w-4 md:h-4" />
               </a>
             </h2>
-
             <div className="flex flex-wrap gap-1.5">
               {article.tags.map(tagName => {
                 const tagSpec = TAGS.find(t => t.name === tagName);
                 const color = tagSpec ? CATEGORY_COLORS[tagSpec.category] : CATEGORY_COLORS[Category.ALL];
                 return (
-                  <span 
-                    key={tagName}
-                    className={cn(
-                      "px-1.5 py-0.5 rounded text-[9px] md:text-[10px] font-black border",
-                      color.bg, color.text, color.border
-                    )}
-                  >
+                  <span key={tagName} className={cn("px-1.5 py-0.5 rounded text-[9px] md:text-[10px] font-black border", color.bg, color.text, color.border)}>
                     {tagName}
                   </span>
                 );
@@ -127,105 +125,60 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
           </div>
 
           <div className="flex items-center justify-end gap-2 shrink-0">
-            {/* Copy Menu Button */}
-            <button 
-              onClick={() => setShowCopyMenu(true)}
-              className="p-2 text-gray-400 hover:text-brand bg-gray-50 dark:bg-gray-700 rounded-full transition-colors"
-              title="복사"
-            >
-              <Link2 className="w-4 h-4" />
-            </button>
+            {/* Copy dropdown */}
+            <div ref={copyWrapRef} className="relative">
+              <button
+                onClick={() => { setShowCopyMenu(v => !v); setShowShareMenu(false); }}
+                className="p-2 text-gray-400 hover:text-brand bg-gray-50 dark:bg-gray-700 rounded-full transition-colors"
+                title="복사"
+              >
+                <Link2 className="w-4 h-4" />
+              </button>
+              {showCopyMenu && (
+                <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-[200] animate-in fade-in zoom-in-95 duration-150 origin-top-right">
+                  <p className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">링크 복사</p>
+                  <div className="p-1">
+                    <button onClick={() => handleCopy('url')} className={DROPDOWN_ITEM}>단순 링크 복사</button>
+                    <button onClick={() => handleCopy('both')} className={DROPDOWN_ITEM}>제목 + 링크 복사</button>
+                  </div>
+                </div>
+              )}
+            </div>
 
-            {/* Share Menu Button */}
-            <button 
-              onClick={() => setShowShareMenu(true)}
-              className="p-2 text-gray-400 hover:text-brand bg-gray-50 dark:bg-gray-700 rounded-full transition-colors"
-              title="공유"
-            >
-              <Share2 className="w-4 h-4" />
-            </button>
+            {/* Share dropdown */}
+            <div ref={shareWrapRef} className="relative">
+              <button
+                onClick={() => { setShowShareMenu(v => !v); setShowCopyMenu(false); }}
+                className="p-2 text-gray-400 hover:text-brand bg-gray-50 dark:bg-gray-700 rounded-full transition-colors"
+                title="공유"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+              {showShareMenu && (
+                <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-[200] animate-in fade-in zoom-in-95 duration-150 origin-top-right">
+                  <p className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">공유하기</p>
+                  <div className="p-1">
+                    <button onClick={handleKakaoShare} className={DROPDOWN_ITEM}>
+                      <KakaoIcon />
+                      카카오톡
+                    </button>
+                    <a
+                      href={`https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(`${article.title}\n${article.url}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setShowShareMenu(false)}
+                      className={DROPDOWN_ITEM}
+                    >
+                      <TeamsIcon />
+                      Teams
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Copy Modal Overlay */}
-      {showCopyMenu && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div
-            ref={copyMenuRef}
-            className="relative z-10 w-full max-w-[280px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
-          >
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-              <h3 className="text-sm font-black text-gray-900 dark:text-white">링크 복사</h3>
-            </div>
-            <div className="p-2">
-              <button 
-                onClick={() => handleCopy('url')}
-                className="w-full text-left px-4 py-3.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors mb-1"
-              >
-                단순 링크 복사
-              </button>
-              <button 
-                onClick={() => handleCopy('both')}
-                className="w-full text-left px-4 py-3.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
-              >
-                제목 + 링크 복사
-              </button>
-            </div>
-            <button 
-              onClick={() => setShowCopyMenu(false)}
-              className="w-full py-4 text-[13px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 border-t border-gray-100 dark:border-gray-700"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Share Modal Overlay */}
-      {showShareMenu && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div
-            ref={shareMenuRef}
-            className="relative z-10 w-full max-w-[280px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
-          >
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-              <h3 className="text-sm font-black text-gray-900 dark:text-white">기사 공유하기</h3>
-            </div>
-            <div className="p-2">
-              <button
-                onClick={handleKakaoShare}
-                className="w-full text-left px-4 py-3.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-3 mb-1"
-              >
-                <KakaoIcon />
-                카카오톡 공유
-              </button>
-              <a
-                href={`https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(`${article.title}\n${article.url}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setShowShareMenu(false)}
-                className="w-full text-left px-4 py-3.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-3"
-              >
-                <div className="w-6 h-6 shrink-0 shadow-sm overflow-hidden rounded-lg flex items-center justify-center bg-[#4B53BC]">
-                  <svg viewBox="0 0 24 24" className="w-full h-full p-1">
-                    <path fill="#FFF" d="M11.5 6.5s.5-.5 1.5-.5 1.5.5 1.5.5V11s1 0 1.5.5 1 2 1 2 .5 1 .5 2v3h-5.5v-3s0-1 .5-2 1.5-3 1.5-3H11v-4h.5zM7 9h4v8H7V9z"/>
-                  </svg>
-                </div>
-                Teams 공유
-              </a>
-            </div>
-            <button 
-              onClick={() => setShowShareMenu(false)}
-              className="w-full py-4 text-[13px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 border-t border-gray-100 dark:border-gray-700"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
-      )}
     </article>
   );
 }
