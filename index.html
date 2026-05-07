@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AI/AX 뉴스 피드</title>
+    <script>
+      // Patch window.open BEFORE Kakao SDK loads so the SDK captures this version.
+      // When a popup is blocked (returns null), dispatch an event instead of crashing.
+      (function () {
+        var _orig = window.open.bind(window);
+        window.open = function (url, name, features) {
+          var popup = _orig(url, name, features);
+          if (!popup && typeof url === 'string' && url.indexOf('kakao') !== -1) {
+            window.dispatchEvent(new CustomEvent('kakao-popup-blocked'));
+            return { focus: function () {}, closed: false };
+          }
+          return popup;
+        };
+      })();
+    </script>
     <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.0/kakao.min.js" crossorigin="anonymous"></script>
   </head>
   <body>
