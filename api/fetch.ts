@@ -1,6 +1,5 @@
 import Parser from 'rss-parser';
 import crypto from 'crypto';
-import { format } from 'date-fns';
 
 const parser = new Parser({
   customFields: {
@@ -52,6 +51,15 @@ const USER_AGENTS = [
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
 ];
 
+function getKstDateStr(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
 function generateId(url: string) {
   return crypto.createHash('md5').update(url).digest('hex');
 }
@@ -74,8 +82,6 @@ function processArticle(item: any) {
     '';
   const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
   const safePubDate = Number.isNaN(pubDate.getTime()) ? new Date() : pubDate;
-  // Vercel runs in UTC; shift to KST (UTC+9) so publishedDate matches Korean calendar
-  const kstDate = new Date(safePubDate.getTime() + 9 * 60 * 60 * 1000);
 
   const tags: string[] = [];
   const categories: string[] = [];
@@ -99,7 +105,7 @@ function processArticle(item: any) {
     imageUrl,
     source,
     publishedAt: safePubDate.toISOString(),
-    publishedDate: format(kstDate, 'yyyy-MM-dd'),
+    publishedDate: getKstDateStr(safePubDate),
     tags,
     categories,
     matchedTerms,

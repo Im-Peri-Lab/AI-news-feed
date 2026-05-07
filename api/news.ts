@@ -1,6 +1,5 @@
 import Parser from 'rss-parser';
 import crypto from 'crypto';
-import { format } from 'date-fns';
 
 const parser = new Parser({
   customFields: {
@@ -40,9 +39,9 @@ const TAGS = [
   { id: 'upstage', name: '업스테이지', category: '국내', keywords: ['업스테이지', 'Upstage', 'Solar'] },
 ];
 
-const SEARCH_QUERIES = [
-  '(AI OR 인공지능 OR "생성형 AI") when:7d',
-  '(LLM OR "AI 에이전트" OR "AI 반도체" OR AX) when:7d',
+const BASE_QUERIES = [
+  '(AI OR 인공지능 OR "생성형 AI")',
+  '(LLM OR "AI 에이전트" OR "AI 반도체" OR AX)',
 ];
 
 const USER_AGENTS = [
@@ -52,6 +51,22 @@ const USER_AGENTS = [
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
 ];
 
+function getKstDateStr(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+function daysAgoFromToday(targetDate: string, todayKst: string): number {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const t = new Date(targetDate + 'T00:00:00+09:00').getTime();
+  const n = new Date(todayKst + 'T00:00:00+09:00').getTime();
+  return Math.max(0, Math.round((n - t) / msPerDay));
+}
+
 function generateId(url: string) {
   return crypto.createHash('md5').update(url).digest('hex');
 }
@@ -60,10 +75,13 @@ function processArticle(item: any) {
   let title = item.title || '';
   let source = item.creator || item.author || 'AI News';
 
-  const sourceMatch = title.match(/(.*) - (.*)$/);
-  if (sourceMatch) {
-    title = sourceMatch[1].trim();
-    source = sourceMatch[2].trim();
+  const lastDash = title.lastIndexOf(' - ');
+  if (lastDash !== -1) {
+    const extracted = title.substring(lastDash + 3).trim();
+    if (extracted.length > 0 && extracted.length < 50) {
+      title = title.substring(0, lastDash).trim();
+      source = extracted;
+    }
   }
 
   const url = item.link || '';
@@ -74,8 +92,7 @@ function processArticle(item: any) {
     '';
   const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
   const safePubDate = Number.isNaN(pubDate.getTime()) ? new Date() : pubDate;
-  // Vercel runs in UTC; shift to KST (UTC+9) so publishedDate matches Korean calendar
-  const kstDate = new Date(safePubDate.getTime() + 9 * 60 * 60 * 1000);
+  const publishedDate = getKstDateStr(safePubDate);
 
   const tags: string[] = [];
   const categories: string[] = [];
@@ -99,7 +116,7 @@ function processArticle(item: any) {
     imageUrl,
     source,
     publishedAt: safePubDate.toISOString(),
-    publishedDate: format(kstDate, 'yyyy-MM-dd'),
+    publishedDate,
     tags,
     categories,
     matchedTerms,
@@ -147,8 +164,8 @@ async function fetchWithRetry(query: string, retries = 2, backoff = 2000): Promi
   return [];
 }
 
-async function fetchAllNews(): Promise<any[]> {
-  const results = await Promise.allSettled(SEARCH_QUERIES.map(q => fetchWithRetry(q)));
+async function fetchAllNews(queries: string[]): Promise<any[]> {
+  const results = await Promise.allSettled(queries.map(q => fetchWithRetry(q)));
 
   const seenIds = new Set<string>();
   const articles: any[] = [];
@@ -174,11 +191,21 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { date } = req.query;
-    const articles = await fetchAllNews();
+    const todayKst = getKstDateStr(new Date());
+    const targetDate = typeof req.query.date === 'string' ? req.query.date : todayKst;
 
-    let filtered = date ? articles.filter((a: any) => a.publishedDate === date) : articles;
-    filtered.sort((a: any, b: any) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    // Use the minimum RSS window that covers the target date.
+    // Today → when:1d (max articles), yesterday → when:2d, etc. Cap at 7d.
+    const daysAgo = daysAgoFromToday(targetDate, todayKst);
+    const windowDays = Math.min(daysAgo + 1, 7);
+    const whenParam = `when:${windowDays}d`;
+
+    const queries = BASE_QUERIES.map(q => `${q} ${whenParam}`);
+    const articles = await fetchAllNews(queries);
+
+    const filtered = articles
+      .filter(a => a.publishedDate === targetDate)
+      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
     res.json({ total: filtered.length, articles: filtered });
   } catch (e: any) {
