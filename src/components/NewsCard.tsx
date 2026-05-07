@@ -61,7 +61,10 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
     });
     const url = `https://sharer.kakao.com/talk/friends/picker/link?app_key=${KAKAO_APP_KEY}&link_ver=4.0&template_object=${encodeURIComponent(templateObject)}&ga=false`;
     // Must use window.open with popup dimensions so window.opener is set (required by sharer.kakao.com)
-    window.open(url, 'kakaoShare', 'width=450,height=650,left=200,top=100');
+    const popup = window.open(url, 'kakaoShare', 'width=450,height=650,left=200,top=100');
+    if (!popup) {
+      alert('팝업이 차단되었습니다. 브라우저 팝업 차단을 해제한 후 다시 시도해주세요.');
+    }
     setShowShareMenu(false);
   };
 
