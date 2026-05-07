@@ -17,6 +17,7 @@ export interface Article {
   id: string;
   title: string;
   url: string;
+  imageUrl?: string;
   source: string;
   publishedAt: string; // ISO string
   publishedDate: string; // YYYY-MM-DD

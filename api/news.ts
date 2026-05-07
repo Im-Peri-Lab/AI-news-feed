@@ -2,7 +2,14 @@ import Parser from 'rss-parser';
 import crypto from 'crypto';
 import { format } from 'date-fns';
 
-const parser = new Parser();
+const parser = new Parser({
+  customFields: {
+    item: [
+      ['media:thumbnail', 'mediaThumbnail'],
+      ['media:content', 'mediaContent'],
+    ],
+  },
+});
 
 const TAGS = [
   { id: 'gen-ai', name: '생성형 AI', category: '기술', keywords: ['생성형 AI', 'generative AI', '생성형 인공지능'] },
@@ -60,6 +67,11 @@ function processArticle(item: any) {
   }
 
   const url = item.link || '';
+  const imageUrl: string =
+    item.mediaThumbnail?.$.url ||
+    item.mediaContent?.$.url ||
+    item.enclosure?.url ||
+    '';
   const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
   const safePubDate = Number.isNaN(pubDate.getTime()) ? new Date() : pubDate;
 
@@ -82,6 +94,7 @@ function processArticle(item: any) {
     id: generateId(url),
     title,
     url,
+    imageUrl,
     source,
     publishedAt: safePubDate.toISOString(),
     publishedDate: format(safePubDate, 'yyyy-MM-dd'),

@@ -46,33 +46,36 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
   };
 
   const handleShare = async (target: 'kakao' | 'teams') => {
-    const shareText = `${article.title}\n${article.url}`;
-    
-    // 1. 복사 수행
-    try {
-      await navigator.clipboard.writeText(shareText);
-    } catch (err) {
-      console.error('Copy failed', err);
-    }
-
     if (target === 'kakao') {
       const Kakao = (window as any).Kakao;
       if (Kakao && Kakao.isInitialized()) {
-        // SDK를 사용하면 모바일/PC 모두 '공유 대상 선택' 창이 정상적으로 뜹니다.
-        // 'text' 타입을 사용하여 기사 카드 형태 대신 텍스트 중심으로 전송합니다.
-        Kakao.Share.sendDefault({
-          objectType: 'text',
-          text: shareText,
+        const content: Record<string, unknown> = {
+          title: article.title,
+          description: `${article.source} · ${displayTime}`,
           link: {
             mobileWebUrl: article.url,
             webUrl: article.url,
           },
+        };
+        if (article.imageUrl) content.imageUrl = article.imageUrl;
+
+        Kakao.Share.sendDefault({
+          objectType: 'feed',
+          content,
+          buttons: [{
+            title: '원문 보기',
+            link: {
+              mobileWebUrl: article.url,
+              webUrl: article.url,
+            },
+          }],
         });
       } else {
         alert('카카오 SDK가 초기화되지 않았습니다.');
       }
     } else {
-      const teamsUrl = `https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(shareText)}`;
+      const teamsText = `${article.title}\n${article.url}`;
+      const teamsUrl = `https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(teamsText)}`;
       window.open(teamsUrl, '_blank');
     }
     setShowShareMenu(false);
