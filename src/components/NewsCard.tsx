@@ -48,37 +48,41 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
   const handleKakaoShare = () => {
     setShowShareMenu(false);
     const Kakao = (window as any).Kakao;
-    if (!Kakao || !Kakao.isInitialized()) {
+    if (!Kakao?.isInitialized()) {
       alert('카카오 SDK가 초기화되지 않았습니다.');
       return;
     }
-    try {
-      const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
-      const link = { mobileWebUrl: redirectUrl, webUrl: redirectUrl };
-      const buttons = [{ title: '원문 보기', link }];
 
-      if (article.imageUrl) {
-        Kakao.Share.sendDefault({
-          objectType: 'feed',
-          content: {
-            title: article.title,
-            description: `${article.source} · ${displayTime}`,
-            imageUrl: article.imageUrl,
-            link,
-          },
-          buttons,
-        });
-      } else {
-        Kakao.Share.sendDefault({
-          objectType: 'text',
-          text: `${article.title}\n${article.source} · ${displayTime}`,
-          link,
-          buttons,
-        });
-      }
-    } catch (e) {
-      console.error('[Kakao] share error:', e);
-      alert('카카오 공유 중 오류가 발생했습니다.');
+    const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
+    const link = { mobileWebUrl: redirectUrl, webUrl: redirectUrl };
+    const shareText = `${article.title}\n${article.source} · ${displayTime}`;
+    const buttons = [{ title: '원문 보기', link }];
+    const payload = article.imageUrl
+      ? { objectType: 'feed', content: { title: article.title, description: `${article.source} · ${displayTime}`, imageUrl: article.imageUrl, link }, buttons }
+      : { objectType: 'text', text: shareText, link, buttons };
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+      // 모바일: SDK가 KakaoTalk 앱 딥링크로 처리 (팝업 차단 없음)
+      try { Kakao.Share.sendDefault(payload); } catch (e) { console.error('[Kakao] share error:', e); }
+      return;
+    }
+
+    // PC: SDK가 내부적으로 window.open()으로 팝업을 열지만 브라우저 팝업 차단에 걸림.
+    // window.open을 임시 교체해 SDK가 생성한 공유 URL을 캡처한 후,
+    // 직접 새 탭(_blank)으로 열면 팝업 차단 없이 동작함.
+    let capturedUrl = '';
+    const originalOpen = window.open.bind(window);
+    (window as any).open = (url: string) => { capturedUrl = url; return null; };
+    try {
+      Kakao.Share.sendDefault(payload);
+    } catch {
+      // SDK가 null.focus()를 시도해 throw — 예상된 동작
+    } finally {
+      (window as any).open = originalOpen;
+    }
+    if (capturedUrl) {
+      originalOpen(capturedUrl, '_blank');
     }
   };
 
