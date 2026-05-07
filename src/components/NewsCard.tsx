@@ -20,16 +20,9 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
   const shareMenuRef = useRef<HTMLDivElement>(null);
 
   const displayTime = format(new Date(article.publishedAt), 'yyyy.MM.dd HH:mm', { locale: ko });
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
   const kakaoShareText = `${article.title}\n${article.source} · ${displayTime}`;
-  const KAKAO_APP_KEY = '0dbe9648057ad88c3d6de74a0451de72';
-  const kakaoLink = { mobile_web_url: redirectUrl, web_url: redirectUrl };
-  const kakaoPcShareUrl = `https://sharer.kakao.com/talk/friends/picker/link?app_key=${KAKAO_APP_KEY}&link_ver=4.0&template_object=${encodeURIComponent(JSON.stringify({
-    object_type: 'text', text: kakaoShareText, link: kakaoLink,
-    buttons: [{ title: '원문 보기', link: kakaoLink }],
-  }))}&ga=false`;
 
   useEffect(() => {
     onMenuToggle?.(showCopyMenu || showShareMenu);
@@ -58,7 +51,6 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
 
 
   const handleKakaoShare = () => {
-    // 모바일 전용: SDK가 KakaoTalk 앱 딥링크로 처리
     setShowShareMenu(false);
     const Kakao = (window as any).Kakao;
     if (!Kakao?.isInitialized()) { alert('카카오 SDK가 초기화되지 않았습니다.'); return; }
@@ -186,34 +178,17 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
               <h3 className="text-sm font-black text-gray-900 dark:text-white">기사 공유하기</h3>
             </div>
             <div className="p-2">
-              {isMobile ? (
-                <button
-                  onClick={handleKakaoShare}
-                  className="w-full text-left px-4 py-3.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-3 mb-1"
-                >
-                  <div className="w-6 h-6 shrink-0 shadow-sm overflow-hidden rounded-lg flex items-center justify-center bg-[#FEE500]">
-                    <svg viewBox="0 0 48 48" className="w-full h-full p-1">
-                      <path d="M24 10c-8.837 0-16 5.671-16 12.667 0 4.542 3.056 8.52 7.643 10.74l-1.94 7.108c-.12.438.39.814.767.565l8.36-5.514c.386.046.777.068 1.17.068 8.837 0 16-5.671 16-12.667S32.837 10 24 10z" fill="#3C1E1E"/>
-                    </svg>
-                  </div>
-                  카카오톡 공유
-                </button>
-              ) : (
-                <a
-                  href={kakaoPcShareUrl}
-                  target="_blank"
-                  rel="opener"
-                  onClick={() => setShowShareMenu(false)}
-                  className="w-full text-left px-4 py-3.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-3 mb-1"
-                >
-                  <div className="w-6 h-6 shrink-0 shadow-sm overflow-hidden rounded-lg flex items-center justify-center bg-[#FEE500]">
-                    <svg viewBox="0 0 48 48" className="w-full h-full p-1">
-                      <path d="M24 10c-8.837 0-16 5.671-16 12.667 0 4.542 3.056 8.52 7.643 10.74l-1.94 7.108c-.12.438.39.814.767.565l8.36-5.514c.386.046.777.068 1.17.068 8.837 0 16-5.671 16-12.667S32.837 10 24 10z" fill="#3C1E1E"/>
-                    </svg>
-                  </div>
-                  카카오톡 공유
-                </a>
-              )}
+              <button
+                onClick={handleKakaoShare}
+                className="w-full text-left px-4 py-3.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-3 mb-1"
+              >
+                <div className="w-6 h-6 shrink-0 shadow-sm overflow-hidden rounded-lg flex items-center justify-center bg-[#FEE500]">
+                  <svg viewBox="0 0 48 48" className="w-full h-full p-1">
+                    <path d="M24 10c-8.837 0-16 5.671-16 12.667 0 4.542 3.056 8.52 7.643 10.74l-1.94 7.108c-.12.438.39.814.767.565l8.36-5.514c.386.046.777.068 1.17.068 8.837 0 16-5.671 16-12.667S32.837 10 24 10z" fill="#3C1E1E"/>
+                  </svg>
+                </div>
+                카카오톡 공유
+              </button>
               <a
                 href={`https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(`${article.title}\n${article.url}`)}`}
                 target="_blank"
