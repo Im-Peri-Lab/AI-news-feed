@@ -42,7 +42,6 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
   const shareWrapRef = useRef<HTMLDivElement>(null);
 
   const displayTime = format(new Date(article.publishedAt), 'yyyy.MM.dd HH:mm', { locale: ko });
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
   const kakaoShareText = `${article.title}\n${article.source} · ${displayTime}`;
 
@@ -73,20 +72,17 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
     setShowShareMenu(false);
     const Kakao = (window as any).Kakao;
     if (!Kakao?.isInitialized()) { alert('카카오 SDK가 초기화되지 않았습니다.'); return; }
-
-    const onBlocked = () => {
-      alert('팝업이 차단되었습니다.\n주소창 오른쪽의 팝업 차단 아이콘을 클릭하여 허용한 후 다시 시도해주세요.');
-    };
-    window.addEventListener('kakao-popup-blocked', onBlocked, { once: true });
-    setTimeout(() => window.removeEventListener('kakao-popup-blocked', onBlocked), 3000);
-
     const link = { mobileWebUrl: redirectUrl, webUrl: redirectUrl };
     const buttons = [{ title: '원문 보기', link }];
-    Kakao.Share.sendDefault(
-      article.imageUrl
-        ? { objectType: 'feed', content: { title: article.title, description: `${article.source} · ${displayTime}`, imageUrl: article.imageUrl, link }, buttons }
-        : { objectType: 'text', text: kakaoShareText, link, buttons }
-    );
+    try {
+      Kakao.Share.sendDefault(
+        article.imageUrl
+          ? { objectType: 'feed', content: { title: article.title, description: `${article.source} · ${displayTime}`, imageUrl: article.imageUrl, link }, buttons }
+          : { objectType: 'text', text: kakaoShareText, link, buttons }
+      );
+    } catch {
+      alert('팝업이 차단되었습니다.\n\n주소창 오른쪽의 팝업 차단 아이콘을 클릭하여\n이 사이트의 팝업을 허용한 후 다시 시도해주세요.');
+    }
   };
 
   return (
@@ -159,12 +155,10 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
                 <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-[200] animate-in fade-in zoom-in-95 duration-150 origin-top-right">
                   <p className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">공유하기</p>
                   <div className="p-1">
-                    {isMobile && (
-                      <button onClick={handleKakaoShare} className={DROPDOWN_ITEM}>
-                        <KakaoIcon />
-                        카카오톡
-                      </button>
-                    )}
+                    <button onClick={handleKakaoShare} className={DROPDOWN_ITEM}>
+                      <KakaoIcon />
+                      카카오톡
+                    </button>
                     <a
                       href={`https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(`${article.title}\n${article.url}`)}`}
                       target="_blank"
