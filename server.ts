@@ -37,60 +37,20 @@ const TAGS = [
   { id: 'upstage', name: '업스테이지', category: '국내', keywords: ['업스테이지', 'Upstage', 'Solar'] },
 ];
 
-const SEARCH_QUERIES = ["AI", "인공지능", "생성형 AI", "LLM", "AI 에이전트", "AI 반도체", "AX"];
+const SEARCH_QUERIES = [
+  '(AI OR 인공지능 OR "생성형 AI") when:24h',
+  '(LLM OR "AI 에이전트" OR "AI 반도체" OR AX) when:24h'
+];
 
-// In-memory store
+// In-memory store (PRD suggests Sheets, but for this environment we use a variable)
 let articleStore: any[] = [];
 
-// API Routes defined outside startServer for Vercel support
-app.get('/api/news', async (req, res) => {
-  // If store is empty (serverless restart), try to fetch once
-  if (articleStore.length === 0) {
-    await fetchNews();
-  }
-
-  const { date } = req.query;
-  let filtered = [...articleStore];
-  if (date) {
-    filtered = articleStore.filter(a => a.publishedDate === date);
-  }
-  // Sort by latest
-  filtered.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-  res.json({ total: filtered.length, articles: filtered });
-});
-
-app.post('/api/fetch', async (req, res) => {
-  const beforeCount = articleStore.length;
-  await fetchNews();
-  const afterCount = articleStore.length;
-  res.json({ saved: afterCount - beforeCount, total: afterCount });
-});
-
-app.get('/api/tags', (req, res) => {
-  res.json({ tags: TAGS });
-});
-
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', environment: process.env.NODE_ENV, timestamp: new Date().toISOString() });
-});
-
-app.get('/r', (req, res) => {
-  const target = typeof req.query.u === 'string' ? req.query.u : '';
-  if (!target) return res.status(400).send('Missing redirect target');
-  try {
-    const parsed = new URL(target);
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return res.status(400).send('Invalid protocol');
-    }
-    res.redirect(parsed.toString());
-  } catch {
-    res.status(400).send('Invalid redirect target');
-  }
-});
-
-app.get('/debug-root', (req, res) => {
-  res.send(`Server is alive. ENV: ${process.env.NODE_ENV}. Time: ${new Date().toISOString()}`);
-});
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1'
+];
 
 function generateId(url: string) {
   return crypto.createHash('md5').update(url).digest('hex');
@@ -143,29 +103,77 @@ function processArticle(item: any) {
   };
 }
 
+async function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(query: string, retries = 3, backoff = 5000) {
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
+  
+  for (let i = 0; i < retries; i++) {
+    try {
+      const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': userAgent,
+          'Accept': 'application/rss+xml, application/xml;q=0.9, */*;q=0.8',
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 503 || response.status === 429) {
+          throw new Error(`Status ${response.status}`);
+        }
+        console.error(`Fetch error for ${query}: ${response.status} ${response.statusText}`);
+        return [];
+      }
+
+      const xml = await response.text();
+      const feed = await parser.parseString(xml);
+      return feed.items;
+    } catch (e: any) {
+      const isRetryable = e.message && (e.message.includes('503') || e.message.includes('429'));
+      if (isRetryable && i < retries - 1) {
+        const jitter = Math.floor(Math.random() * 3000); // More jitter
+        const waitTime = backoff + jitter;
+        console.warn(`Fetch error for ${query} (Attempt ${i + 1}/${retries}). Retrying in ${waitTime}ms...`);
+        await delay(waitTime);
+        backoff *= 2; 
+        continue;
+      }
+      console.error(`Final fetch error for ${query}:`, e.message || e);
+      return [];
+    }
+  }
+  return [];
+}
+
 async function fetchNews() {
   const allResults: any[] = [];
   const seenUrls = new Set<string>();
 
-  const fetchPromises = SEARCH_QUERIES.map(async query => {
-    try {
-      const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
-      const feed = await parser.parseURL(url);
-      return feed.items;
-    } catch (e) {
-      console.error(`Fetch error for ${query}:`, e);
-      return [];
+  console.log('Starting news update...');
+
+  // Use sequential fetching with MUCH longer delays to stay under the radar
+  for (const query of SEARCH_QUERIES) {
+    const items = await fetchWithRetry(query);
+    if (items && items.length > 0) {
+      items.forEach(item => {
+        if (!item.link || seenUrls.has(item.link)) return;
+        seenUrls.add(item.link);
+        allResults.push(processArticle(item));
+      });
     }
-  });
-
-  const results = await Promise.all(fetchPromises);
-  const flattened = results.flat();
-
-  flattened.forEach(item => {
-    if (!item.link || seenUrls.has(item.link)) return;
-    seenUrls.add(item.link);
-    allResults.push(processArticle(item));
-  });
+    // Very long delay between queries (10-15 seconds)
+    if (SEARCH_QUERIES.indexOf(query) < SEARCH_QUERIES.length - 1) {
+      const wait = 10000 + Math.random() * 5000;
+      console.log(`Waiting ${Math.round(wait/1000)}s before next query...`);
+      await delay(wait);
+    }
+  }
 
   // Unique by URL/ID
   const uniqueResults = allResults.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
@@ -175,10 +183,55 @@ async function fetchNews() {
   const newArticles = uniqueResults.filter(a => !existingIds.has(a.id));
   
   articleStore = [...newArticles, ...articleStore].slice(0, 1000); // Keep last 1000
+  console.log(`News updated. New: ${newArticles.length}, Total: ${articleStore.length}`);
 }
 
 async function startServer() {
   const PORT = 3000;
+
+  app.get('/api/news', (req, res) => {
+    const { date } = req.query;
+    let filtered = [...articleStore];
+    if (date) {
+      filtered = articleStore.filter(a => a.publishedDate === date);
+    }
+    // Sort by latest
+    filtered.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    res.json({ total: filtered.length, articles: filtered });
+  });
+
+  app.post('/api/fetch', async (req, res) => {
+    const beforeCount = articleStore.length;
+    await fetchNews();
+    const afterCount = articleStore.length;
+    res.json({ saved: afterCount - beforeCount, total: afterCount });
+  });
+
+  app.get('/api/tags', (req, res) => {
+    res.json({ tags: TAGS });
+  });
+
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', environment: process.env.NODE_ENV, timestamp: new Date().toISOString() });
+  });
+
+  app.get('/r', (req, res) => {
+    const target = typeof req.query.u === 'string' ? req.query.u : '';
+    if (!target) return res.status(400).send('Missing redirect target');
+    try {
+      const parsed = new URL(target);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return res.status(400).send('Invalid protocol');
+      }
+      res.redirect(parsed.toString());
+    } catch {
+      res.status(400).send('Invalid redirect target');
+    }
+  });
+
+  app.get('/debug-root', (req, res) => {
+    res.send(`Server is alive. ENV: ${process.env.NODE_ENV}. Time: ${new Date().toISOString()}`);
+  });
 
   const isProduction = process.env.NODE_ENV === 'production';
 
@@ -199,33 +252,23 @@ async function startServer() {
     
     // Fallback for SPA
     app.get('*', (req, res) => {
-      // Don't intercept API calls
-      if (req.path.startsWith('/api/')) return res.status(404).send('Not Found');
-      
       const indexPath = path.join(distPath, 'index.html');
       res.sendFile(indexPath, (err) => {
         if (err) {
           console.error(`Error sending index.html from ${indexPath}:`, err);
-          res.status(404).send(`404: Page not found.`);
+          res.status(404).send(`404: Page not found. The server could not find index.html at ${indexPath}. Please ensure 'npm run build' was executed.`);
         }
       });
     });
     console.log('Static serving initialized (Production)');
   }
 
-  // Only start listening if NOT on Vercel
-  if (!process.env.VERCEL) {
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV}`);
-      // Background fetch after start
-      fetchNews().catch(console.error);
-    });
-  }
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+    // Background fetch after start
+    fetchNews().catch(console.error);
+  });
 }
 
-// Start the setup
 startServer();
-
-// For Vercel Serverless Functions
-export default app;
