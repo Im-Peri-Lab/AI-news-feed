@@ -48,6 +48,10 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
   const handleKakaoShare = () => {
     setShowShareMenu(false);
     const Kakao = (window as any).Kakao;
+
+    console.log('[Kakao] window.Kakao:', Kakao);
+    console.log('[Kakao] isInitialized:', Kakao?.isInitialized?.());
+
     if (!Kakao || !Kakao.isInitialized()) {
       alert('카카오 SDK가 초기화되지 않았습니다.');
       return;
@@ -60,13 +64,18 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
         link: { mobileWebUrl: redirectUrl, webUrl: redirectUrl },
       };
       if (article.imageUrl) content.imageUrl = article.imageUrl;
-      Kakao.Share.sendDefault({
+
+      const payload = {
         objectType: 'feed',
         content,
         buttons: [{ title: '원문 보기', link: { mobileWebUrl: redirectUrl, webUrl: redirectUrl } }],
-      });
+      };
+      console.log('[Kakao] sendDefault payload:', JSON.stringify(payload, null, 2));
+
+      Kakao.Share.sendDefault(payload);
+      console.log('[Kakao] sendDefault called successfully');
     } catch (e) {
-      console.error('Kakao share error:', e);
+      console.error('[Kakao] share error:', e);
       alert('카카오 공유 중 오류가 발생했습니다.');
     }
   };
