@@ -202,7 +202,12 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
                   href={kakaoPcShareUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => setShowShareMenu(false)}
+                  onClick={() => {
+                    console.log('[Kakao PC] article.url:', article.url);
+                    console.log('[Kakao PC] redirectUrl:', redirectUrl);
+                    console.log('[Kakao PC] kakaoPcShareUrl:', kakaoPcShareUrl);
+                    setShowShareMenu(false);
+                  }}
                   className="w-full text-left px-4 py-3.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-3 mb-1"
                 >
                   <div className="w-6 h-6 shrink-0 shadow-sm overflow-hidden rounded-lg flex items-center justify-center bg-[#FEE500]">
