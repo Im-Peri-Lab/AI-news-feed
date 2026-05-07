@@ -80,8 +80,11 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
           ? { objectType: 'feed', content: { title: article.title, description: `${article.source} · ${displayTime}`, imageUrl: article.imageUrl, link }, buttons }
           : { objectType: 'text', text: kakaoShareText, link, buttons }
       );
-    } catch {
-      alert('팝업이 차단되었습니다.\n\n주소창 오른쪽의 팝업 차단 아이콘을 클릭하여\n이 사이트의 팝업을 허용한 후 다시 시도해주세요.');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '';
+      if (msg.includes('focus')) {
+        alert('팝업이 차단되었습니다.\n\n주소창 오른쪽의 팝업 차단 아이콘을 클릭하여\n이 사이트의 팝업을 허용한 후 다시 시도해주세요.');
+      }
     }
   };
 
