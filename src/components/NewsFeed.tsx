@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { getNews, refreshNews } from '../services/newsService';
-import { Article, Category } from '../types';
+import { Article } from '../types';
 import NewsCard from './NewsCard';
 import TagFilter from './TagFilter';
 import DateNavigation from './DateNavigation';
@@ -14,7 +14,7 @@ export default function NewsFeed() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [search, setSearch] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [activeCategory, setActiveCategory] = useState<Category>(Category.ALL);
+  const [activeCategory, setActiveCategory] = useState<string>('전체');
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('');

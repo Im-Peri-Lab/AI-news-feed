@@ -1,6 +1,19 @@
-import { TagSpec, CategoryDef } from '../types';
+import { get } from '@vercel/edge-config';
 
-export const TAGS: TagSpec[] = [
+export interface TagSpec {
+  id: string;
+  name: string;
+  category: string;
+  keywords: string[];
+}
+
+export interface CategoryDef {
+  id: string;
+  name: string;
+  color: { bg: string; text: string; border: string };
+}
+
+export const DEFAULT_TAGS: TagSpec[] = [
   { id: 'gen-ai', name: '생성형 AI', category: '기술', keywords: ['생성형 AI', 'generative AI', '생성형 인공지능'] },
   { id: 'llm', name: 'LLM', category: '기술', keywords: ['LLM', '대규모 언어모델', '언어모델', 'Large Language Model'] },
   { id: 'ai-agent', name: 'AI 에이전트', category: '기술', keywords: ['AI 에이전트', 'agent', '에이전틱', 'autonomous agent'] },
@@ -45,11 +58,48 @@ export const COLOR_PALETTE = [
   { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-100' },
 ];
 
-export const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  '전체': { bg: 'bg-brand-light', text: 'text-brand', border: 'border-brand/20' },
-  '글로벌': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-100' },
-  '국내': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100' },
-  '기술': { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-100' },
-  '모델': { bg: 'bg-brand-light', text: 'text-brand', border: 'border-brand/20' },
-  '미분류': { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200' },
-};
+export const UNCLASSIFIED_COLOR = { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200' };
+
+function getEdgeConfigId(): string {
+  const conn = process.env.EDGE_CONFIG || '';
+  const match = conn.match(/ecfg_[a-zA-Z0-9]+/);
+  return match ? match[0] : '';
+}
+
+export async function getTagsFromConfig(): Promise<TagSpec[]> {
+  try {
+    const tags = await get<TagSpec[]>('tags');
+    return tags ?? DEFAULT_TAGS;
+  } catch {
+    return DEFAULT_TAGS;
+  }
+}
+
+export async function getCategoriesFromConfig(): Promise<CategoryDef[]> {
+  try {
+    const categories = await get<CategoryDef[]>('categories');
+    return categories ?? DEFAULT_CATEGORIES;
+  } catch {
+    return DEFAULT_CATEGORIES;
+  }
+}
+
+export async function updateEdgeConfigKey(key: string, value: unknown): Promise<void> {
+  const edgeConfigId = getEdgeConfigId();
+  const token = process.env.VERCEL_API_TOKEN;
+  if (!edgeConfigId || !token) throw new Error('Edge Config not configured (missing EDGE_CONFIG or VERCEL_API_TOKEN)');
+
+  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ items: [{ operation: 'upsert', key, value }] }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Edge Config update failed: ${res.status} ${text}`);
+  }
+}

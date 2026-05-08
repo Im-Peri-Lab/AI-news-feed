@@ -9,8 +9,14 @@ export enum Category {
 export interface TagSpec {
   id: string;
   name: string;
-  category: Category;
+  category: string;
   keywords: string[];
+}
+
+export interface CategoryDef {
+  id: string;
+  name: string;
+  color: { bg: string; text: string; border: string };
 }
 
 export interface Article {
@@ -19,10 +25,10 @@ export interface Article {
   url: string;
   imageUrl?: string;
   source: string;
-  publishedAt: string; // ISO string
-  publishedDate: string; // YYYY-MM-DD
+  publishedAt: string;
+  publishedDate: string;
   tags: string[];
-  categories: Category[];
+  categories: string[];
   matchedTerms: string[];
   collector: string;
   fetchedAt: string;

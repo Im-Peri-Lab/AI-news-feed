@@ -1,27 +1,27 @@
-import { Category } from '../types';
-import { TAGS, CATEGORY_COLORS } from '../constants/tags';
+import { useTags } from '../contexts/TagsContext';
 import { cn } from '../lib/utils';
 import { X, Filter } from 'lucide-react';
 
 interface TagFilterProps {
   selectedTags: string[];
   setSelectedTags: (tags: string[]) => void;
-  activeCategory: Category;
-  setActiveCategory: (cat: Category) => void;
+  activeCategory: string;
+  setActiveCategory: (cat: string) => void;
 }
 
-export default function TagFilter({ 
-  selectedTags, 
-  setSelectedTags, 
-  activeCategory, 
-  setActiveCategory 
+export default function TagFilter({
+  selectedTags,
+  setSelectedTags,
+  activeCategory,
+  setActiveCategory
 }: TagFilterProps) {
-  
-  const categories = Object.values(Category);
-  
-  const displayedTags = activeCategory === Category.ALL 
-    ? TAGS 
-    : TAGS.filter(t => t.category === activeCategory);
+  const { tags, categories, getCategoryColor } = useTags();
+
+  const allCategories = ['전체', ...categories.map(c => c.name)];
+
+  const displayedTags = activeCategory === '전체'
+    ? tags
+    : tags.filter(t => t.category === activeCategory);
 
   const toggleTag = (tagName: string) => {
     if (selectedTags.includes(tagName)) {
@@ -45,14 +45,14 @@ export default function TagFilter({
       <div className="flex items-center gap-3 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide mb-4 touch-pan-x">
         <Filter className="w-4 h-4 text-gray-400 shrink-0 ml-1 translate-y-[1px]" />
         <nav className="flex gap-5 md:gap-9">
-          {categories.map(cat => (
+          {allCategories.map(cat => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
               className={cn(
                 "relative px-1 py-3 text-[13px] md:text-sm font-extrabold transition-all whitespace-nowrap flex items-center gap-2.5",
-                activeCategory === cat 
-                  ? "text-brand dark:text-brand after:absolute after:bottom-0 after:left-0 after:right-0 after:h-1 after:bg-brand after:rounded-full" 
+                activeCategory === cat
+                  ? "text-brand dark:text-brand after:absolute after:bottom-0 after:left-0 after:right-0 after:h-1 after:bg-brand after:rounded-full"
                   : "text-gray-500 hover:text-gray-900 dark:hover:text-gray-200"
               )}
             >
@@ -66,15 +66,15 @@ export default function TagFilter({
       <div className="flex gap-2 px-1 overflow-x-auto pb-2 md:pb-3 scrollbar-hide touch-pan-x">
         {displayedTags.map(tag => {
           const isActive = selectedTags.includes(tag.name);
-          const activeColor = CATEGORY_COLORS[tag.category];
-          
+          const activeColor = getCategoryColor(tag.category);
+
           return (
             <button
               key={tag.id}
               onClick={() => toggleTag(tag.name)}
               className={cn(
                 "inline-flex items-center justify-center px-4 py-1.5 rounded-full text-[12px] md:text-[13px] font-bold border transition-all whitespace-nowrap h-9 md:h-10",
-                isActive 
+                isActive
                   ? cn(activeColor.bg, activeColor.text, activeColor.border)
                   : "bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-300"
               )}
@@ -90,7 +90,7 @@ export default function TagFilter({
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 shadow-sm">
           <div className="flex justify-between items-center mb-2">
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">선택된 태그</span>
-            <button 
+            <button
               onClick={clearAll}
               className="text-[10px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
             >
@@ -99,10 +99,10 @@ export default function TagFilter({
           </div>
           <div className="flex gap-2 overflow-x-auto md:flex-wrap md:overflow-x-visible scrollbar-none">
             {selectedTags.map(tagName => {
-              const tag = TAGS.find(t => t.name === tagName);
-              const color = tag ? CATEGORY_COLORS[tag.category] : CATEGORY_COLORS[Category.ALL];
+              const tag = tags.find(t => t.name === tagName);
+              const color = getCategoryColor(tag?.category ?? '');
               return (
-                <span 
+                <span
                   key={tagName}
                   className={cn(
                     "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap border shrink-0",
