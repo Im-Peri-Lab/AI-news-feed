@@ -58,17 +58,48 @@ export const COLOR_PALETTE = [
 
 export const UNCLASSIFIED_COLOR = { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200' };
 
+function parseEdgeConfigConn(): { configId: string; token: string } | null {
+  const conn = process.env.EDGE_CONFIG;
+  if (!conn) return null;
+  try {
+    const url = new URL(conn);
+    const token = url.searchParams.get('token');
+    const configId = url.pathname.replace(/^\//, '');
+    if (!token || !configId) return null;
+    return { configId, token };
+  } catch {
+    return null;
+  }
+}
+
 function getEdgeConfigId(): string {
   const conn = process.env.EDGE_CONFIG || '';
   const match = conn.match(/ecfg_[a-zA-Z0-9]+/);
   return match ? match[0] : '';
 }
 
-export async function getTagsFromConfig(): Promise<TagSpec[]> {
-  if (!process.env.EDGE_CONFIG) return DEFAULT_TAGS;
+async function readEdgeConfigItem<T>(key: string): Promise<T | null> {
+  const parsed = parseEdgeConfigConn();
+  if (!parsed) return null;
+  const { configId, token } = parsed;
   try {
-    const { get } = await import('@vercel/edge-config');
-    const tags = await get<TagSpec[]>('tags');
+    const res = await fetch(
+      `https://edge-config.vercel.com/${configId}/item/${key}?token=${token}`
+    );
+    if (!res.ok) {
+      console.error(`[edgeConfig] read "${key}" failed: ${res.status}`);
+      return null;
+    }
+    return res.json() as Promise<T>;
+  } catch (e) {
+    console.error(`[edgeConfig] read "${key}" error:`, e);
+    return null;
+  }
+}
+
+export async function getTagsFromConfig(): Promise<TagSpec[]> {
+  try {
+    const tags = await readEdgeConfigItem<TagSpec[]>('tags');
     return tags ?? DEFAULT_TAGS;
   } catch (e) {
     console.error('[edgeConfig] getTagsFromConfig failed:', e);
@@ -77,10 +108,8 @@ export async function getTagsFromConfig(): Promise<TagSpec[]> {
 }
 
 export async function getCategoriesFromConfig(): Promise<CategoryDef[]> {
-  if (!process.env.EDGE_CONFIG) return DEFAULT_CATEGORIES;
   try {
-    const { get } = await import('@vercel/edge-config');
-    const categories = await get<CategoryDef[]>('categories');
+    const categories = await readEdgeConfigItem<CategoryDef[]>('categories');
     return categories ?? DEFAULT_CATEGORIES;
   } catch (e) {
     console.error('[edgeConfig] getCategoriesFromConfig failed:', e);

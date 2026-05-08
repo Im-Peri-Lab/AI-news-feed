@@ -1,6 +1,5 @@
-import { getTagsFromConfig, getCategoriesFromConfig, updateEdgeConfigKey } from '../lib/edgeConfig';
-import { TAGS as DEFAULT_TAGS, DEFAULT_CATEGORIES } from '../src/constants/tags';
-import type { TagSpec } from '../src/types';
+import { getTagsFromConfig, getCategoriesFromConfig, updateEdgeConfigKey, DEFAULT_TAGS, DEFAULT_CATEGORIES } from '../lib/edgeConfig';
+import type { TagSpec } from '../lib/edgeConfig';
 
 function slugify(name: string): string {
   return name
