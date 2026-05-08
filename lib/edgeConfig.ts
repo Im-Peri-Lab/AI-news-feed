@@ -1,5 +1,3 @@
-import { get } from '@vercel/edge-config';
-
 export interface TagSpec {
   id: string;
   name: string;
@@ -68,6 +66,7 @@ function getEdgeConfigId(): string {
 
 export async function getTagsFromConfig(): Promise<TagSpec[]> {
   try {
+    const { get } = await import('@vercel/edge-config');
     const tags = await get<TagSpec[]>('tags');
     return tags ?? DEFAULT_TAGS;
   } catch {
@@ -77,6 +76,7 @@ export async function getTagsFromConfig(): Promise<TagSpec[]> {
 
 export async function getCategoriesFromConfig(): Promise<CategoryDef[]> {
   try {
+    const { get } = await import('@vercel/edge-config');
     const categories = await get<CategoryDef[]>('categories');
     return categories ?? DEFAULT_CATEGORIES;
   } catch {

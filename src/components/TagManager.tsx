@@ -38,7 +38,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
   const [editCatId, setEditCatId] = useState<string | null>(null);
   const [editCatName, setEditCatName] = useState('');
 
-  async function run(fn: () => Promise<void>) {
+  async function run(fn: () => Promise<unknown>) {
     setBusy(true);
     try { await fn(); await refresh(); } catch (e: any) { alert(e.message); } finally { setBusy(false); }
   }
