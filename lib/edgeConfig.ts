@@ -70,7 +70,8 @@ export async function getTagsFromConfig(): Promise<TagSpec[]> {
     const { get } = await import('@vercel/edge-config');
     const tags = await get<TagSpec[]>('tags');
     return tags ?? DEFAULT_TAGS;
-  } catch {
+  } catch (e) {
+    console.error('[edgeConfig] getTagsFromConfig failed:', e);
     return DEFAULT_TAGS;
   }
 }
@@ -81,7 +82,8 @@ export async function getCategoriesFromConfig(): Promise<CategoryDef[]> {
     const { get } = await import('@vercel/edge-config');
     const categories = await get<CategoryDef[]>('categories');
     return categories ?? DEFAULT_CATEGORIES;
-  } catch {
+  } catch (e) {
+    console.error('[edgeConfig] getCategoriesFromConfig failed:', e);
     return DEFAULT_CATEGORIES;
   }
 }

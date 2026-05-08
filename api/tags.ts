@@ -1,4 +1,6 @@
-import { getTagsFromConfig, getCategoriesFromConfig, updateEdgeConfigKey, DEFAULT_CATEGORIES, TagSpec } from '../lib/edgeConfig';
+import { getTagsFromConfig, getCategoriesFromConfig, updateEdgeConfigKey } from '../lib/edgeConfig';
+import { TAGS as DEFAULT_TAGS, DEFAULT_CATEGORIES } from '../src/constants/tags';
+import type { TagSpec } from '../src/types';
 
 function slugify(name: string): string {
   return name
@@ -11,12 +13,22 @@ function slugify(name: string): string {
 
 export default async function handler(req: any, res: any) {
   if (req.method === 'GET') {
+    let tags = DEFAULT_TAGS;
+    let categories = DEFAULT_CATEGORIES;
+    let edgeConfigError: string | null = null;
+
     try {
-      const [tags, categories] = await Promise.all([getTagsFromConfig(), getCategoriesFromConfig()]);
-      return res.json({ tags, categories });
+      [tags, categories] = await Promise.all([getTagsFromConfig(), getCategoriesFromConfig()]);
     } catch (e: any) {
-      return res.status(500).json({ error: e.message });
+      edgeConfigError = e?.message ?? String(e);
+      console.error('[api/tags] Edge Config load failed, using defaults:', edgeConfigError);
     }
+
+    return res.json({
+      tags,
+      categories,
+      ...(edgeConfigError && { _edgeConfigError: edgeConfigError }),
+    });
   }
 
   if (req.method === 'POST') {
