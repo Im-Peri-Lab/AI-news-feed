@@ -1,5 +1,46 @@
-import { getCategoriesFromConfig, updateEdgeConfigKey, COLOR_PALETTE } from './_edgeConfig';
-import type { CategoryDef } from './_edgeConfig';
+import { get } from '@vercel/edge-config';
+
+interface CategoryDef { id: string; name: string; color: { bg: string; text: string; border: string }; }
+
+const DEFAULT_CATEGORIES: CategoryDef[] = [
+  { id: 'tech', name: '기술', color: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-100' } },
+  { id: 'model', name: '모델', color: { bg: 'bg-brand-light', text: 'text-brand', border: 'border-brand/20' } },
+  { id: 'global', name: '글로벌', color: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-100' } },
+  { id: 'domestic', name: '국내', color: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100' } },
+];
+
+const COLOR_PALETTE = [
+  { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-100' },
+  { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-100' },
+  { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-100' },
+  { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-100' },
+  { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-100' },
+  { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-100' },
+];
+
+function getEdgeConfigId(): string {
+  const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
+  return match ? match[0] : '';
+}
+
+async function updateEdgeConfigKey(key: string, value: unknown): Promise<void> {
+  const edgeConfigId = getEdgeConfigId();
+  const token = process.env.VERCEL_API_TOKEN;
+  if (!edgeConfigId || !token) throw new Error('Edge Config not configured');
+  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: [{ operation: 'upsert', key, value }] }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Edge Config update failed: ${res.status} ${text}`);
+  }
+}
+
+async function getCategoriesFromConfig(): Promise<CategoryDef[]> {
+  try { return (await get<CategoryDef[]>('categories')) ?? DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; }
+}
 
 function slugify(name: string): string {
   return name
