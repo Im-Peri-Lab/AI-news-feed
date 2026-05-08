@@ -1,6 +1,8 @@
 import Parser from 'rss-parser';
 import crypto from 'crypto';
-import { getTagsFromConfig, TagSpec } from '../lib/edgeConfig';
+import { getTagsFromConfig } from '../lib/edgeConfig';
+import { TAGS as DEFAULT_TAGS } from '../src/constants/tags';
+import type { TagSpec } from '../src/types';
 
 const parser = new Parser({
   customFields: {
@@ -172,7 +174,15 @@ export default async function handler(req: any, res: any) {
     const whenParam = daysAgo === 0 ? 'when:1d' : 'when:7d';
 
     const queries = BASE_QUERIES.map(q => `${q} ${whenParam}`);
-    const tags = await getTagsFromConfig();
+
+    let tags: TagSpec[];
+    try {
+      tags = await getTagsFromConfig();
+    } catch (e) {
+      console.error('[api/news] Edge Config tag load failed, using defaults:', e);
+      tags = DEFAULT_TAGS;
+    }
+
     const articles = await fetchAllNews(queries, tags);
 
     const filtered = articles
