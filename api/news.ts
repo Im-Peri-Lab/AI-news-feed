@@ -1,7 +1,7 @@
 import Parser from 'rss-parser';
 import crypto from 'crypto';
-import { getTagsFromConfig, DEFAULT_TAGS } from '../lib/edgeConfig';
-import type { TagSpec } from '../lib/edgeConfig';
+import { getTagsFromConfig, DEFAULT_TAGS } from './_edgeConfig';
+import type { TagSpec } from './_edgeConfig';
 
 const parser = new Parser({
   customFields: {

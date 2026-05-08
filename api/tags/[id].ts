@@ -1,4 +1,4 @@
-import { getTagsFromConfig, updateEdgeConfigKey } from '../../lib/edgeConfig';
+import { getTagsFromConfig, updateEdgeConfigKey } from '../_edgeConfig';
 
 export default async function handler(req: any, res: any) {
   const { id } = req.query;

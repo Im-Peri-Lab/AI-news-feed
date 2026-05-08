@@ -1,4 +1,5 @@
-import { getCategoriesFromConfig, updateEdgeConfigKey, COLOR_PALETTE, CategoryDef } from '../lib/edgeConfig';
+import { getCategoriesFromConfig, updateEdgeConfigKey, COLOR_PALETTE } from './_edgeConfig';
+import type { CategoryDef } from './_edgeConfig';
 
 function slugify(name: string): string {
   return name
