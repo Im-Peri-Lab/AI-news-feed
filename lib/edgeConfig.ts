@@ -65,6 +65,7 @@ function getEdgeConfigId(): string {
 }
 
 export async function getTagsFromConfig(): Promise<TagSpec[]> {
+  if (!process.env.EDGE_CONFIG) return DEFAULT_TAGS;
   try {
     const { get } = await import('@vercel/edge-config');
     const tags = await get<TagSpec[]>('tags');
@@ -75,6 +76,7 @@ export async function getTagsFromConfig(): Promise<TagSpec[]> {
 }
 
 export async function getCategoriesFromConfig(): Promise<CategoryDef[]> {
+  if (!process.env.EDGE_CONFIG) return DEFAULT_CATEGORIES;
   try {
     const { get } = await import('@vercel/edge-config');
     const categories = await get<CategoryDef[]>('categories');
