@@ -73,5 +73,16 @@ export default async function handler(req: any, res: any) {
     }
   }
 
+  if (req.method === 'PATCH') {
+    try {
+      const { categories } = req.body;
+      if (!Array.isArray(categories)) return res.status(400).json({ error: 'categories array required' });
+      await updateEdgeConfigKey('categories', categories);
+      return res.json({ categories });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   return res.status(405).json({ error: 'Method not allowed' });
 }

@@ -44,3 +44,7 @@ export async function deleteCategory(id: string): Promise<void> {
 export async function reorderTags(tags: TagSpec[]): Promise<void> {
   await request('/api/tags', 'PATCH', { tags });
 }
+
+export async function reorderCategories(categories: CategoryDef[]): Promise<void> {
+  await request('/api/categories', 'PATCH', { categories });
+}

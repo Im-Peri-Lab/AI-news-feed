@@ -1,7 +1,7 @@
 import React, { useState, KeyboardEvent } from 'react';
 import { X, Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
 import { useTags } from '../contexts/TagsContext';
-import { createTag, updateTag, deleteTag, createCategory, updateCategory, deleteCategory, reorderTags } from '../services/tagService';
+import { createTag, updateTag, deleteTag, createCategory, updateCategory, deleteCategory, reorderTags, reorderCategories } from '../services/tagService';
 import { cn } from '../lib/utils';
 
 interface TagManagerProps {
@@ -91,6 +91,52 @@ export default function TagManager({ onClose }: TagManagerProps) {
       await reorderTags(newTags);
     } catch (err: any) {
       mutateTags(() => prevTags);
+      alert(err.message);
+    }
+  }
+
+  // --- Category drag and drop ---
+  const [dragCatId, setDragCatId] = useState<string | null>(null);
+  const [dragCatInsertIdx, setDragCatInsertIdx] = useState<number | null>(null);
+
+  function onCatDragStart(e: React.DragEvent, catId: string) {
+    e.dataTransfer.setData('catId', catId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDragCatId(catId);
+  }
+
+  function onCatDragOver(e: React.DragEvent<HTMLDivElement>, idx: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = e.currentTarget.getBoundingClientRect();
+    const insertIdx = e.clientY < rect.top + rect.height / 2 ? idx : idx + 1;
+    setDragCatInsertIdx(prev => prev === insertIdx ? prev : insertIdx);
+  }
+
+  function cleanCatDrag() { setDragCatId(null); setDragCatInsertIdx(null); }
+
+  async function onCatDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('catId');
+    const insertIdx = dragCatInsertIdx;
+    cleanCatDrag();
+    if (!sourceId || insertIdx === null) return;
+
+    const sourceIdx = categories.findIndex(c => c.id === sourceId);
+    if (sourceIdx === -1) return;
+    if (insertIdx === sourceIdx || insertIdx === sourceIdx + 1) return;
+
+    const newCats = [...categories];
+    const [removed] = newCats.splice(sourceIdx, 1);
+    const insertAt = insertIdx > sourceIdx ? insertIdx - 1 : insertIdx;
+    newCats.splice(insertAt, 0, removed);
+
+    const prevCats = categories;
+    mutateCategories(() => newCats);
+    try {
+      await reorderCategories(newCats);
+    } catch (err: any) {
+      mutateCategories(() => prevCats);
       alert(err.message);
     }
   }
@@ -388,34 +434,65 @@ export default function TagManager({ onClose }: TagManagerProps) {
               )}
 
               {/* Category list */}
-              <div className="space-y-2">
-                {categories.map(cat => {
+              <div
+                className="space-y-2"
+                onDragOver={e => e.preventDefault()}
+                onDrop={onCatDrop}
+                onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) cleanCatDrag(); }}
+              >
+                {categories.map((cat, idx) => {
                   const tagCount = tags.filter(t => t.category === cat.name).length;
                   return (
-                    <div key={cat.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <span className={cn("px-2 py-0.5 rounded text-[10px] font-black border shrink-0", cat.color.bg, cat.color.text, cat.color.border)}>
-                        {cat.name}
-                      </span>
-                      {editCatId === cat.id ? (
-                        <div className="flex-1 flex items-center gap-2">
-                          <input value={editCatName} onChange={e => setEditCatName(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleSaveCat()}
-                            className={cn(INPUT_CLS, "flex-1 h-8 text-xs")} autoFocus />
-                          <button onClick={handleSaveCat} disabled={busy} className="p-1.5 text-brand hover:bg-brand/10 rounded-lg"><Check className="w-4 h-4" /></button>
-                          <button onClick={() => setEditCatId(null)} className={BTN_GHOST}><X className="w-4 h-4" /></button>
+                    <div key={cat.id}>
+                      {dragCatInsertIdx === idx && (
+                        <div className="flex items-center gap-0 my-1 pointer-events-none">
+                          <div className="w-1.5 h-1.5 rounded-full bg-brand" />
+                          <div className="flex-1 h-0.5 bg-brand" />
+                          <div className="w-1.5 h-1.5 rounded-full bg-brand" />
                         </div>
-                      ) : (
-                        <>
-                          <span className="flex-1 text-sm text-gray-500 dark:text-gray-400">{tagCount}개 태그</span>
-                          <div className="flex gap-1">
-                            <button onClick={() => startEditCat(cat.id)} className={BTN_GHOST} title="이름 변경"><Pencil className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => handleDeleteCat(cat.id)} className={cn(BTN_GHOST, "hover:text-red-500")} title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
-                          </div>
-                        </>
                       )}
+                      <div
+                        draggable
+                        onDragStart={e => onCatDragStart(e, cat.id)}
+                        onDragOver={e => onCatDragOver(e, idx)}
+                        onDragEnd={cleanCatDrag}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
+                          dragCatId === cat.id && "opacity-50"
+                        )}
+                      >
+                        <GripVertical className="w-4 h-4 shrink-0 text-gray-300 dark:text-gray-600 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <span className={cn("px-2 py-0.5 rounded text-[10px] font-black border shrink-0", cat.color.bg, cat.color.text, cat.color.border)}>
+                          {cat.name}
+                        </span>
+                        {editCatId === cat.id ? (
+                          <div className="flex-1 flex items-center gap-2">
+                            <input value={editCatName} onChange={e => setEditCatName(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && handleSaveCat()}
+                              className={cn(INPUT_CLS, "flex-1 h-8 text-xs")} autoFocus />
+                            <button onClick={handleSaveCat} disabled={busy} className="p-1.5 text-brand hover:bg-brand/10 rounded-lg"><Check className="w-4 h-4" /></button>
+                            <button onClick={() => setEditCatId(null)} className={BTN_GHOST}><X className="w-4 h-4" /></button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="flex-1 text-sm text-gray-500 dark:text-gray-400">{tagCount}개 태그</span>
+                            <div className="flex gap-1">
+                              <button onClick={() => startEditCat(cat.id)} className={BTN_GHOST} title="이름 변경"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => handleDeleteCat(cat.id)} className={cn(BTN_GHOST, "hover:text-red-500")} title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
+                {dragCatInsertIdx === categories.length && (
+                  <div className="flex items-center gap-0 my-1 pointer-events-none">
+                    <div className="w-1.5 h-1.5 rounded-full bg-brand" />
+                    <div className="flex-1 h-0.5 bg-brand" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-brand" />
+                  </div>
+                )}
               </div>
             </>
           )}
