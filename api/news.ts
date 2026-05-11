@@ -209,17 +209,12 @@ export default async function handler(req: any, res: any) {
 
     const daysAgo = daysAgoFromToday(targetDate, todayKst);
 
-    // For today: use "after:PREV_DATE" to anchor to the specific date instead of
-    // "when:1d" (rolling 24h window). This ensures consistent results regardless
-    // of what time the request is made — early-morning clicks won't miss midnight articles.
-    // For past dates: "when:7d" covers up to 6 days ago; the date filter below narrows it.
-    let dateParam: string;
-    if (daysAgo === 0) {
-      const prevDay = new Date(new Date(targetDate + 'T00:00:00+09:00').getTime() - 86400000);
-      dateParam = `after:${getKstDateStr(prevDay)}`;
-    } else {
-      dateParam = 'when:7d';
-    }
+    // "when:2d" gives a 48-hour window, capturing articles from 00:00 KST today
+    // even when queried early morning (avoids the 24h sliding-window gap).
+    // "after:YYYY-MM-DD" was avoided because Google interprets it in UTC, which
+    // would exclude articles published 00:00–08:59 KST (= previous UTC day).
+    // For past dates beyond 1 day: "when:7d"; the date filter below narrows the result.
+    const dateParam = daysAgo === 0 ? 'when:2d' : 'when:7d';
 
     const queries = BASE_QUERIES.map(q => `${q} ${dateParam}`);
 
@@ -237,7 +232,27 @@ export default async function handler(req: any, res: any) {
       .filter(a => a.publishedDate === targetDate)
       .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
+    // Debug: log articles excluded by the date filter so timezone issues are visible
+    const excluded = articles.filter(a => a.publishedDate !== targetDate);
+    if (excluded.length > 0) {
+      console.log(
+        `[api/news] date-filter excluded ${excluded.length} articles` +
+        ` (targetDate=${targetDate}, totalFetched=${articles.length}, shown=${filtered.length})`
+      );
+      excluded.slice(0, 10).forEach(a =>
+        console.log(
+          `[api/news]   EXCLUDED publishedDate=${a.publishedDate}` +
+          ` pubISO=${a.publishedAt} title="${a.title.slice(0, 60)}"`
+        )
+      );
+    }
+
     const dateSample = [...new Set(articles.map(a => a.publishedDate))].sort();
+    const excludedDates = Object.fromEntries(
+      dateSample
+        .filter(d => d !== targetDate)
+        .map(d => [d, articles.filter(a => a.publishedDate === d).length])
+    );
 
     res.json({
       total: filtered.length,
@@ -248,6 +263,9 @@ export default async function handler(req: any, res: any) {
         daysAgo,
         dateParam,
         totalFetched: articles.length,
+        shown: filtered.length,
+        excludedByDateFilter: excluded.length,
+        excludedDates,
         datesInRss: dateSample,
       },
     });
