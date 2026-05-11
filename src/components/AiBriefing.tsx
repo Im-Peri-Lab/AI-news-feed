@@ -192,7 +192,7 @@ export default function AiBriefing({ articles, date }: Props) {
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-brand" />
-          <span className="font-bold text-[13px] text-gray-900 dark:text-white">AI 브리핑</span>
+          <span className="font-bold text-[15px] text-gray-900 dark:text-white">AI 브리핑</span>
           {articles.length > 0 && (
             <span className="text-[11px] text-gray-400 font-medium">{articles.length}건</span>
           )}
