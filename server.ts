@@ -1,4 +1,6 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+dotenv.config();
 import express from 'express';
 import path from 'path';
 import Parser from 'rss-parser';
@@ -214,7 +216,7 @@ async function startServer() {
       res.setHeader('X-Accel-Buffering', 'no');
 
       const stream = await ai.models.generateContentStream({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
       });
 

@@ -42,7 +42,7 @@ export default async function handler(req: any, res: any) {
     res.setHeader('X-Accel-Buffering', 'no');
 
     const stream = await ai.models.generateContentStream({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
 
