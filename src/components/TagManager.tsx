@@ -19,6 +19,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
   const [busy, setBusy] = useState(false);
 
   // --- Tag add form ---
+  const [showAddForm, setShowAddForm] = useState(false);
   const [addName, setAddName] = useState('');
   const [addCategory, setAddCategory] = useState(categories[0]?.name ?? '');
   const [addKeywords, setAddKeywords] = useState<string[]>([]);
@@ -54,7 +55,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
   async function handleAddTag() {
     if (!addName.trim() || !addCategory) return;
     await run(() => createTag({ name: addName.trim(), category: addCategory, keywords: addKeywords }));
-    setAddName(''); setAddKeywords([]); setAddKwInput('');
+    setAddName(''); setAddKeywords([]); setAddKwInput(''); setShowAddForm(false);
   }
 
   // Tag edit
@@ -137,10 +138,55 @@ export default function TagManager({ onClose }: TagManagerProps) {
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {tab === 'tags' ? (
             <>
+              {/* Add tag toggle button / inline form */}
+              {!showAddForm ? (
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-dashed border-brand/40 text-brand text-sm font-bold hover:bg-brand-light/50 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />태그 추가
+                </button>
+              ) : (
+                <div className="border border-brand/25 bg-brand-light/20 dark:bg-gray-800 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-black text-brand uppercase tracking-wider">새 태그 추가</p>
+                    <button
+                      onClick={() => { setShowAddForm(false); setAddName(''); setAddKeywords([]); setAddKwInput(''); }}
+                      className={BTN_GHOST}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input value={addName} onChange={e => setAddName(e.target.value)}
+                      placeholder="태그명" className={cn(INPUT_CLS, "flex-1")} autoFocus />
+                    <select value={addCategory} onChange={e => setAddCategory(e.target.value)} className={INPUT_CLS}>
+                      {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                    {addKeywords.map(kw => (
+                      <span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium text-gray-700 dark:text-gray-200">
+                        {kw}
+                        <button onClick={() => setAddKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
+                      </span>
+                    ))}
+                    <input value={addKwInput} onChange={e => setAddKwInput(e.target.value)} onKeyDown={onAddKwKey} onBlur={pushAddKw}
+                      placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                  </div>
+                  <div className="flex justify-end">
+                    <button onClick={handleAddTag} disabled={busy || !addName.trim()}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
+                      <Plus className="w-4 h-4" />추가
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Tag list by category */}
               {allCategoryNames.filter(name => name !== '미분류' || hasUnclassified).map(catName => {
                 const catTags = tags.filter(t => catName === '미분류' ? !categories.find(c => c.name === t.category) : t.category === catName);
-                if (catTags.length === 0 && catName !== addCategory) return null;
+                if (catTags.length === 0) return null;
                 const color = getCategoryColor(catName);
                 return (
                   <div key={catName}>
@@ -151,7 +197,6 @@ export default function TagManager({ onClose }: TagManagerProps) {
                       {catTags.map(tag => (
                         <div key={tag.id}>
                           {editTagId === tag.id ? (
-                            // Edit form
                             <div className="p-3 rounded-xl border border-brand/30 bg-brand-light/30 dark:bg-gray-800 space-y-2">
                               <div className="flex gap-2">
                                 <input value={editName} onChange={e => setEditName(e.target.value)}
@@ -176,7 +221,6 @@ export default function TagManager({ onClose }: TagManagerProps) {
                               </div>
                             </div>
                           ) : (
-                            // Display row
                             <div className="flex items-start gap-2 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 group">
                               <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 w-28 truncate">{tag.name}</span>
                               <div className="flex-1 flex flex-wrap gap-1">
@@ -196,34 +240,6 @@ export default function TagManager({ onClose }: TagManagerProps) {
                   </div>
                 );
               })}
-
-              {/* Add tag form */}
-              <div className="border border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
-                <p className="text-[11px] font-black text-gray-400 uppercase tracking-wider">새 태그 추가</p>
-                <div className="flex gap-2">
-                  <input value={addName} onChange={e => setAddName(e.target.value)}
-                    placeholder="태그명" className={cn(INPUT_CLS, "flex-1")} />
-                  <select value={addCategory} onChange={e => setAddCategory(e.target.value)} className={INPUT_CLS}>
-                    {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                  {addKeywords.map(kw => (
-                    <span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium text-gray-700 dark:text-gray-200">
-                      {kw}
-                      <button onClick={() => setAddKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
-                    </span>
-                  ))}
-                  <input value={addKwInput} onChange={e => setAddKwInput(e.target.value)} onKeyDown={onAddKwKey} onBlur={pushAddKw}
-                    placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
-                </div>
-                <div className="flex justify-end">
-                  <button onClick={handleAddTag} disabled={busy || !addName.trim()}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
-                    <Plus className="w-4 h-4" />태그 추가
-                  </button>
-                </div>
-              </div>
             </>
           ) : (
             <>
