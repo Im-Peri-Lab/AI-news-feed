@@ -25,6 +25,8 @@ export default async function handler(req: any, res: any) {
   if (!apiKey) {
     return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
   }
+  // DEBUG: log key prefix to verify correct key is loaded (remove after fix)
+  console.log('[api/briefing] key prefix:', apiKey.slice(0, 10) + '***', 'length:', apiKey.length);
 
   const { articles, date } = req.body as { articles: ArticleInput[]; date: string };
   if (!articles?.length) {
