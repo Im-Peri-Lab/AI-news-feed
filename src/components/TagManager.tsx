@@ -42,7 +42,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
 
   // --- Drag and drop ---
   const [dragId, setDragId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dragInsert, setDragInsert] = useState<{ catName: string; idx: number } | null>(null);
 
   function onTagDragStart(e: React.DragEvent, tagId: string) {
     e.dataTransfer.setData('tagId', tagId);
@@ -50,29 +50,40 @@ export default function TagManager({ onClose }: TagManagerProps) {
     setDragId(tagId);
   }
 
-  function onTagDragOver(e: React.DragEvent, tagId: string) {
+  function onTagDragOver(e: React.DragEvent<HTMLDivElement>, tagIdx: number, catName: string) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    if (dragOverId !== tagId) setDragOverId(tagId);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const insertIdx = e.clientY < rect.top + rect.height / 2 ? tagIdx : tagIdx + 1;
+    setDragInsert(prev =>
+      prev?.catName === catName && prev.idx === insertIdx ? prev : { catName, idx: insertIdx }
+    );
   }
 
-  function cleanDrag() { setDragId(null); setDragOverId(null); }
+  function cleanDrag() { setDragId(null); setDragInsert(null); }
 
-  async function onTagDrop(e: React.DragEvent, targetId: string) {
+  async function onTagDrop(e: React.DragEvent, catName: string) {
     e.preventDefault();
     const sourceId = e.dataTransfer.getData('tagId');
+    const insert = dragInsert;
     cleanDrag();
-    if (!sourceId || sourceId === targetId) return;
+    if (!sourceId || !insert || insert.catName !== catName) return;
 
     const sourceTag = tags.find(t => t.id === sourceId);
-    const targetTag = tags.find(t => t.id === targetId);
-    if (!sourceTag || !targetTag || sourceTag.category !== targetTag.category) return;
+    if (!sourceTag || sourceTag.category !== catName) return;
 
-    const newTags = [...tags];
-    const fromIdx = newTags.findIndex(t => t.id === sourceId);
-    const toIdx = newTags.findIndex(t => t.id === targetId);
-    newTags.splice(fromIdx, 1);
-    newTags.splice(toIdx, 0, sourceTag);
+    const catTags = tags.filter(t => t.category === catName);
+    const sourceIdx = catTags.findIndex(t => t.id === sourceId);
+    if (sourceIdx === -1) return;
+    if (insert.idx === sourceIdx || insert.idx === sourceIdx + 1) return;
+
+    const newCatTags = [...catTags];
+    newCatTags.splice(sourceIdx, 1);
+    const insertAt = insert.idx > sourceIdx ? insert.idx - 1 : insert.idx;
+    newCatTags.splice(insertAt, 0, sourceTag);
+
+    let ci = 0;
+    const newTags = tags.map(t => t.category === catName ? newCatTags[ci++] : t);
 
     const prevTags = tags;
     mutateTags(() => newTags);
@@ -266,9 +277,21 @@ export default function TagManager({ onClose }: TagManagerProps) {
                     <span className={cn("inline-flex px-2 py-0.5 rounded text-[10px] font-black border mb-2", color.bg, color.text, color.border)}>
                       {catName}
                     </span>
-                    <div className="space-y-1.5">
-                      {catTags.map(tag => (
+                    <div
+                      className="space-y-1.5"
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => onTagDrop(e, catName)}
+                      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragInsert(null); }}
+                    >
+                      {catTags.map((tag, idx) => (
                         <div key={tag.id}>
+                          {dragInsert?.catName === catName && dragInsert.idx === idx && (
+                            <div className="flex items-center gap-0 my-1 pointer-events-none">
+                              <div className="w-1.5 h-1.5 rounded-full bg-brand" />
+                              <div className="flex-1 h-0.5 bg-brand" />
+                              <div className="w-1.5 h-1.5 rounded-full bg-brand" />
+                            </div>
+                          )}
                           {editTagId === tag.id ? (
                             <div className="p-3 rounded-xl border border-brand/30 bg-brand-light/30 dark:bg-gray-800 space-y-2">
                               <div className="flex gap-2">
@@ -297,13 +320,11 @@ export default function TagManager({ onClose }: TagManagerProps) {
                             <div
                               draggable
                               onDragStart={e => onTagDragStart(e, tag.id)}
-                              onDragOver={e => onTagDragOver(e, tag.id)}
-                              onDrop={e => onTagDrop(e, tag.id)}
+                              onDragOver={e => onTagDragOver(e, idx, catName)}
                               onDragEnd={cleanDrag}
                               className={cn(
-                                "flex items-start gap-2 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 group transition-colors",
-                                dragId === tag.id && "opacity-40",
-                                dragOverId === tag.id && dragId !== tag.id && "border border-brand/40 bg-brand-light/30 dark:bg-gray-800"
+                                "flex items-start gap-2 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
+                                dragId === tag.id && "opacity-50"
                               )}
                             >
                               <GripVertical className="w-4 h-4 shrink-0 mt-0.5 text-gray-300 dark:text-gray-600 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -321,6 +342,13 @@ export default function TagManager({ onClose }: TagManagerProps) {
                           )}
                         </div>
                       ))}
+                      {dragInsert?.catName === catName && dragInsert.idx === catTags.length && (
+                        <div className="flex items-center gap-0 my-1 pointer-events-none">
+                          <div className="w-1.5 h-1.5 rounded-full bg-brand" />
+                          <div className="flex-1 h-0.5 bg-brand" />
+                          <div className="w-1.5 h-1.5 rounded-full bg-brand" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
