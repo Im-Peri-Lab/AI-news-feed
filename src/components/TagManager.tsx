@@ -51,7 +51,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
     if (kw && !addKeywords.includes(kw)) setAddKeywords(prev => [...prev, kw]);
     setAddKwInput('');
   }
-  function onAddKwKey(e: KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter') { e.preventDefault(); pushAddKw(); } }
+  function onAddKwKey(e: KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); pushAddKw(); } }
 
   async function handleAddTag() {
     if (!addName.trim() || !addCategory) return;
@@ -73,7 +73,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
     if (kw && !editKeywords.includes(kw)) setEditKeywords(prev => [...prev, kw]);
     setEditKwInput('');
   }
-  function onEditKwKey(e: KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter') { e.preventDefault(); pushEditKw(); } }
+  function onEditKwKey(e: KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); pushEditKw(); } }
 
   async function handleSaveTag() {
     if (!editTagId) return;
