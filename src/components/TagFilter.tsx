@@ -76,7 +76,7 @@ export default function TagFilter({
               key={tag.id}
               onClick={() => toggleTag(tag.name)}
               className={cn(
-                "inline-flex items-center justify-center px-4 py-1.5 rounded-full text-[12px] md:text-[13px] font-bold border transition-all whitespace-nowrap h-9 md:h-10",
+                "inline-flex items-center justify-center px-3 py-1 rounded-full text-[12px] md:text-[13px] font-bold border transition-all whitespace-nowrap",
                 isActive
                   ? cn(activeColor.bg, activeColor.text, activeColor.border)
                   : "bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-300"
