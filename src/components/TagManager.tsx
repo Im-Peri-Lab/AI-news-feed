@@ -1,7 +1,7 @@
-import { useState, KeyboardEvent } from 'react';
-import { X, Plus, Pencil, Trash2, Check } from 'lucide-react';
+import React, { useState, KeyboardEvent } from 'react';
+import { X, Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
 import { useTags } from '../contexts/TagsContext';
-import { createTag, updateTag, deleteTag, createCategory, updateCategory, deleteCategory } from '../services/tagService';
+import { createTag, updateTag, deleteTag, createCategory, updateCategory, deleteCategory, reorderTags } from '../services/tagService';
 import { cn } from '../lib/utils';
 
 interface TagManagerProps {
@@ -39,6 +39,50 @@ export default function TagManager({ onClose }: TagManagerProps) {
   // --- Category edit state ---
   const [editCatId, setEditCatId] = useState<string | null>(null);
   const [editCatName, setEditCatName] = useState('');
+
+  // --- Drag and drop ---
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  function onTagDragStart(e: React.DragEvent, tagId: string) {
+    e.dataTransfer.setData('tagId', tagId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDragId(tagId);
+  }
+
+  function onTagDragOver(e: React.DragEvent, tagId: string) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverId !== tagId) setDragOverId(tagId);
+  }
+
+  function cleanDrag() { setDragId(null); setDragOverId(null); }
+
+  async function onTagDrop(e: React.DragEvent, targetId: string) {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('tagId');
+    cleanDrag();
+    if (!sourceId || sourceId === targetId) return;
+
+    const sourceTag = tags.find(t => t.id === sourceId);
+    const targetTag = tags.find(t => t.id === targetId);
+    if (!sourceTag || !targetTag || sourceTag.category !== targetTag.category) return;
+
+    const newTags = [...tags];
+    const fromIdx = newTags.findIndex(t => t.id === sourceId);
+    const toIdx = newTags.findIndex(t => t.id === targetId);
+    newTags.splice(fromIdx, 1);
+    newTags.splice(toIdx, 0, sourceTag);
+
+    const prevTags = tags;
+    mutateTags(() => newTags);
+    try {
+      await reorderTags(newTags);
+    } catch (err: any) {
+      mutateTags(() => prevTags);
+      alert(err.message);
+    }
+  }
 
   async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
     setBusy(true);
@@ -250,7 +294,19 @@ export default function TagManager({ onClose }: TagManagerProps) {
                               </div>
                             </div>
                           ) : (
-                            <div className="flex items-start gap-2 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 group">
+                            <div
+                              draggable
+                              onDragStart={e => onTagDragStart(e, tag.id)}
+                              onDragOver={e => onTagDragOver(e, tag.id)}
+                              onDrop={e => onTagDrop(e, tag.id)}
+                              onDragEnd={cleanDrag}
+                              className={cn(
+                                "flex items-start gap-2 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 group transition-colors",
+                                dragId === tag.id && "opacity-40",
+                                dragOverId === tag.id && dragId !== tag.id && "border border-brand/40 bg-brand-light/30 dark:bg-gray-800"
+                              )}
+                            >
+                              <GripVertical className="w-4 h-4 shrink-0 mt-0.5 text-gray-300 dark:text-gray-600 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity" />
                               <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 w-28 truncate">{tag.name}</span>
                               <div className="flex-1 flex flex-wrap gap-1">
                                 {tag.keywords.map(kw => (

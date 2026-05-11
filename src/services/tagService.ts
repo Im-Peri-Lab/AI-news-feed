@@ -40,3 +40,7 @@ export async function updateCategory(id: string, name: string): Promise<Category
 export async function deleteCategory(id: string): Promise<void> {
   return request(`/api/categories/${id}`, 'DELETE');
 }
+
+export async function reorderTags(tags: TagSpec[]): Promise<void> {
+  await request('/api/tags', 'PATCH', { tags });
+}
