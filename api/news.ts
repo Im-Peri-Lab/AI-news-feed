@@ -137,17 +137,19 @@ function processArticle(item: any, TAGS: TagSpec[]) {
 }
 
 async function fetchWithRetry(query: string, retries = 2, backoff = 2000): Promise<any[]> {
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
+  // Add timestamp to bypass Google's server-side cache and get fresh results each request
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko&_t=${Date.now()}`;
 
   for (let i = 0; i < retries; i++) {
     try {
       const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
       const response = await fetch(url, {
+        cache: 'no-store',
         headers: {
           'User-Agent': userAgent,
           'Accept': 'application/rss+xml, application/xml;q=0.9, */*;q=0.8',
           'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
         },
       });
@@ -205,12 +207,21 @@ export default async function handler(req: any, res: any) {
     const todayKst = getKstDateStr(new Date());
     const targetDate = typeof req.query.date === 'string' ? req.query.date : todayKst;
 
-    // Google News RSS supports when:1d (today) and when:7d (past dates).
-    // Intermediate values like when:2d are not reliably supported.
     const daysAgo = daysAgoFromToday(targetDate, todayKst);
-    const whenParam = daysAgo === 0 ? 'when:1d' : 'when:7d';
 
-    const queries = BASE_QUERIES.map(q => `${q} ${whenParam}`);
+    // For today: use "after:PREV_DATE" to anchor to the specific date instead of
+    // "when:1d" (rolling 24h window). This ensures consistent results regardless
+    // of what time the request is made — early-morning clicks won't miss midnight articles.
+    // For past dates: "when:7d" covers up to 6 days ago; the date filter below narrows it.
+    let dateParam: string;
+    if (daysAgo === 0) {
+      const prevDay = new Date(new Date(targetDate + 'T00:00:00+09:00').getTime() - 86400000);
+      dateParam = `after:${getKstDateStr(prevDay)}`;
+    } else {
+      dateParam = 'when:7d';
+    }
+
+    const queries = BASE_QUERIES.map(q => `${q} ${dateParam}`);
 
     let tags: TagSpec[];
     try {
@@ -235,7 +246,7 @@ export default async function handler(req: any, res: any) {
         todayKst,
         targetDate,
         daysAgo,
-        whenParam,
+        dateParam,
         totalFetched: articles.length,
         datesInRss: dateSample,
       },

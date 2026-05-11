@@ -42,8 +42,8 @@ const TAGS = [
 ];
 
 const SEARCH_QUERIES = [
-  '(AI OR 인공지능 OR "생성형 AI") when:24h',
-  '(LLM OR "AI 에이전트" OR "AI 반도체" OR AX) when:24h'
+  '(AI OR 인공지능 OR "생성형 AI") when:1d',
+  '(LLM OR "AI 에이전트" OR "AI 반도체" OR AX) when:1d'
 ];
 
 // In-memory store (PRD suggests Sheets, but for this environment we use a variable)
@@ -112,17 +112,19 @@ async function delay(ms: number) {
 }
 
 async function fetchWithRetry(query: string, retries = 3, backoff = 5000) {
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
-  
+  // Add timestamp to bypass Google's server-side cache and get fresh results each request
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko&_t=${Date.now()}`;
+
   for (let i = 0; i < retries; i++) {
     try {
       const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
       const response = await fetch(url, {
+        cache: 'no-store',
         headers: {
           'User-Agent': userAgent,
           'Accept': 'application/rss+xml, application/xml;q=0.9, */*;q=0.8',
           'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache'
         }
       });
