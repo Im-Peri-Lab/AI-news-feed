@@ -1,8 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Header from './components/Header';
 import NewsFeed from './components/NewsFeed';
+import TagManager from './components/TagManager';
+import { TagsProvider } from './contexts/TagsContext';
 
 export default function App() {
+  const [showTagManager, setShowTagManager] = useState(false);
+
   useEffect(() => {
     // Handle Kakao Share redirects
     const params = new URLSearchParams(window.location.search);
@@ -27,11 +31,14 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f9f9fb] dark:bg-[#0d0e12] transition-colors duration-300">
-      <div className="max-w-6xl mx-auto px-4 md:px-10 py-8 md:py-16 pb-40 md:pb-60">
-        <Header />
-        <NewsFeed />
+    <TagsProvider>
+      <div className="min-h-screen bg-[#f9f9fb] dark:bg-[#0d0e12] transition-colors duration-300">
+        <div className="max-w-6xl mx-auto px-4 md:px-10 py-8 md:py-16 pb-40 md:pb-60">
+          <Header onOpenSettings={() => setShowTagManager(true)} />
+          <NewsFeed />
+        </div>
       </div>
-    </div >
+      {showTagManager && <TagManager onClose={() => setShowTagManager(false)} />}
+    </TagsProvider>
   );
 }

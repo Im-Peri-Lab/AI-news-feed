@@ -1,6 +1,6 @@
 import { ExternalLink, Link2, Share2 } from 'lucide-react';
-import { Article, Category } from '../types';
-import { TAGS, CATEGORY_COLORS } from '../constants/tags';
+import { Article } from '../types';
+import { useTags } from '../contexts/TagsContext';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -36,6 +36,7 @@ interface NewsCardProps {
 }
 
 export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: NewsCardProps) {
+  const { tags, getCategoryColor } = useTags();
   const [showCopyMenu, setShowCopyMenu] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const copyWrapRef = useRef<HTMLDivElement>(null);
@@ -124,8 +125,8 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
             </h2>
             <div className="flex flex-wrap gap-1.5">
               {article.tags.map(tagName => {
-                const tagSpec = TAGS.find(t => t.name === tagName);
-                const color = tagSpec ? CATEGORY_COLORS[tagSpec.category] : CATEGORY_COLORS[Category.ALL];
+                const tagSpec = tags.find(t => t.name === tagName);
+                const color = getCategoryColor(tagSpec?.category ?? '');
                 return (
                   <span key={tagName} className={cn("px-1.5 py-0.5 rounded text-[9px] md:text-[10px] font-black border", color.bg, color.text, color.border)}>
                     {tagName}

@@ -1,6 +1,9 @@
-import { TagSpec, CategoryDef } from '../types';
+import { get } from '@vercel/edge-config';
 
-export const TAGS: TagSpec[] = [
+interface TagSpec { id: string; name: string; category: string; keywords: string[]; }
+interface CategoryDef { id: string; name: string; color: { bg: string; text: string; border: string }; }
+
+const DEFAULT_TAGS: TagSpec[] = [
   { id: 'gen-ai', name: '생성형 AI', category: '기술', keywords: ['생성형 AI', 'generative AI', '생성형 인공지능'] },
   { id: 'llm', name: 'LLM', category: '기술', keywords: ['LLM', '대규모 언어모델', '언어모델', 'Large Language Model'] },
   { id: 'ai-agent', name: 'AI 에이전트', category: '기술', keywords: ['AI 에이전트', 'agent', '에이전틱', 'autonomous agent'] },
@@ -29,27 +32,89 @@ export const TAGS: TagSpec[] = [
   { id: 'upstage', name: '업스테이지', category: '국내', keywords: ['업스테이지', 'Upstage', 'Solar'] },
 ];
 
-export const DEFAULT_CATEGORIES: CategoryDef[] = [
+const DEFAULT_CATEGORIES: CategoryDef[] = [
   { id: 'tech', name: '기술', color: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-100' } },
   { id: 'model', name: '모델', color: { bg: 'bg-brand-light', text: 'text-brand', border: 'border-brand/20' } },
   { id: 'global', name: '글로벌', color: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-100' } },
   { id: 'domestic', name: '국내', color: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100' } },
 ];
 
-export const COLOR_PALETTE = [
-  { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-100' },
-  { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-100' },
-  { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-100' },
-  { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-100' },
-  { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-100' },
-  { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-100' },
-];
+function getEdgeConfigId(): string {
+  const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
+  return match ? match[0] : '';
+}
 
-export const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  '전체': { bg: 'bg-brand-light', text: 'text-brand', border: 'border-brand/20' },
-  '글로벌': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-100' },
-  '국내': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100' },
-  '기술': { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-100' },
-  '모델': { bg: 'bg-brand-light', text: 'text-brand', border: 'border-brand/20' },
-  '미분류': { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200' },
-};
+async function updateEdgeConfigKey(key: string, value: unknown): Promise<void> {
+  const edgeConfigId = getEdgeConfigId();
+  const token = process.env.VERCEL_API_TOKEN;
+  if (!edgeConfigId || !token) throw new Error('Edge Config not configured');
+  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: [{ operation: 'upsert', key, value }] }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Edge Config update failed: ${res.status} ${text}`);
+  }
+}
+
+async function getTagsFromConfig(): Promise<TagSpec[]> {
+  try { return (await get<TagSpec[]>('tags')) ?? DEFAULT_TAGS; } catch { return DEFAULT_TAGS; }
+}
+
+async function getCategoriesFromConfig(): Promise<CategoryDef[]> {
+  try { return (await get<CategoryDef[]>('categories')) ?? DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; }
+}
+
+export default async function handler(req: any, res: any) {
+  const { id } = req.query;
+  if (!id || typeof id !== 'string') return res.status(400).json({ error: 'Missing id' });
+
+  if (req.method === 'PUT') {
+    try {
+      const { name } = req.body;
+      if (!name) return res.status(400).json({ error: 'name is required' });
+
+      const categories = await getCategoriesFromConfig();
+      const idx = categories.findIndex(c => c.id === id);
+      if (idx === -1) return res.status(404).json({ error: 'Category not found' });
+
+      const oldName = categories[idx].name;
+      categories[idx] = { ...categories[idx], name: name.trim() };
+
+      // Update tags that reference the old category name
+      const tags = await getTagsFromConfig();
+      const updatedTags = tags.map(t => t.category === oldName ? { ...t, category: name.trim() } : t);
+
+      await Promise.all([
+        updateEdgeConfigKey('categories', categories),
+        updateEdgeConfigKey('tags', updatedTags),
+      ]);
+      return res.json(categories[idx]);
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      const [categories, tags] = await Promise.all([getCategoriesFromConfig(), getTagsFromConfig()]);
+      const cat = categories.find(c => c.id === id);
+      if (!cat) return res.status(404).json({ error: 'Category not found' });
+
+      const updatedCategories = categories.filter(c => c.id !== id);
+      const updatedTags = tags.map(t => t.category === cat.name ? { ...t, category: '미분류' } : t);
+
+      await Promise.all([
+        updateEdgeConfigKey('categories', updatedCategories),
+        updateEdgeConfigKey('tags', updatedTags),
+      ]);
+      return res.json({ success: true });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}

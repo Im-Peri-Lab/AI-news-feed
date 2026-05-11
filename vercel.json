@@ -1,7 +1,11 @@
 {
   "functions": {
     "api/news.ts": { "maxDuration": 30 },
-    "api/fetch.ts": { "maxDuration": 30 }
+    "api/fetch.ts": { "maxDuration": 30 },
+    "api/tags.ts": { "maxDuration": 10 },
+    "api/tags/[id].ts": { "maxDuration": 10 },
+    "api/categories.ts": { "maxDuration": 10 },
+    "api/categories/[id].ts": { "maxDuration": 10 }
   },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }

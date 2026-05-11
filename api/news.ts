@@ -1,16 +1,10 @@
 import Parser from 'rss-parser';
 import crypto from 'crypto';
+import { get } from '@vercel/edge-config';
 
-const parser = new Parser({
-  customFields: {
-    item: [
-      ['media:thumbnail', 'mediaThumbnail'],
-      ['media:content', 'mediaContent'],
-    ],
-  },
-});
+interface TagSpec { id: string; name: string; category: string; keywords: string[]; }
 
-const TAGS = [
+const DEFAULT_TAGS: TagSpec[] = [
   { id: 'gen-ai', name: '생성형 AI', category: '기술', keywords: ['생성형 AI', 'generative AI', '생성형 인공지능'] },
   { id: 'llm', name: 'LLM', category: '기술', keywords: ['LLM', '대규모 언어모델', '언어모델', 'Large Language Model'] },
   { id: 'ai-agent', name: 'AI 에이전트', category: '기술', keywords: ['AI 에이전트', 'agent', '에이전틱', 'autonomous agent'] },
@@ -38,6 +32,23 @@ const TAGS = [
   { id: 'wrtn', name: '뤼튼', category: '국내', keywords: ['뤼튼', 'Wrtn', '뤼튼테크놀로지스'] },
   { id: 'upstage', name: '업스테이지', category: '국내', keywords: ['업스테이지', 'Upstage', 'Solar'] },
 ];
+
+async function getTagsFromConfig(): Promise<TagSpec[]> {
+  try {
+    return (await get<TagSpec[]>('tags')) ?? DEFAULT_TAGS;
+  } catch {
+    return DEFAULT_TAGS;
+  }
+}
+
+const parser = new Parser({
+  customFields: {
+    item: [
+      ['media:thumbnail', 'mediaThumbnail'],
+      ['media:content', 'mediaContent'],
+    ],
+  },
+});
 
 const BASE_QUERIES = [
   '(AI OR 인공지능 OR "생성형 AI")',
@@ -71,7 +82,7 @@ function generateId(url: string) {
   return crypto.createHash('md5').update(url).digest('hex');
 }
 
-function processArticle(item: any) {
+function processArticle(item: any, TAGS: TagSpec[]) {
   let title = item.title || '';
   let source = item.creator || item.author || 'AI News';
 
@@ -164,7 +175,7 @@ async function fetchWithRetry(query: string, retries = 2, backoff = 2000): Promi
   return [];
 }
 
-async function fetchAllNews(queries: string[]): Promise<any[]> {
+async function fetchAllNews(queries: string[], tags: TagSpec[]): Promise<any[]> {
   const results = await Promise.allSettled(queries.map(q => fetchWithRetry(q)));
 
   const seenIds = new Set<string>();
@@ -174,7 +185,7 @@ async function fetchAllNews(queries: string[]): Promise<any[]> {
     if (result.status !== 'fulfilled') continue;
     for (const item of result.value) {
       if (!item.link) continue;
-      const article = processArticle(item);
+      const article = processArticle(item, tags);
       if (!seenIds.has(article.id)) {
         seenIds.add(article.id);
         articles.push(article);
@@ -200,7 +211,16 @@ export default async function handler(req: any, res: any) {
     const whenParam = daysAgo === 0 ? 'when:1d' : 'when:7d';
 
     const queries = BASE_QUERIES.map(q => `${q} ${whenParam}`);
-    const articles = await fetchAllNews(queries);
+
+    let tags: TagSpec[];
+    try {
+      tags = await getTagsFromConfig();
+    } catch (e) {
+      console.error('[api/news] Edge Config tag load failed, using defaults:', e);
+      tags = DEFAULT_TAGS;
+    }
+
+    const articles = await fetchAllNews(queries, tags);
 
     const filtered = articles
       .filter(a => a.publishedDate === targetDate)
