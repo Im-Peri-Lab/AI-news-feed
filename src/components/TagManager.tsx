@@ -14,7 +14,7 @@ const INPUT_CLS = "px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-
 const BTN_GHOST = "p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors";
 
 export default function TagManager({ onClose }: TagManagerProps) {
-  const { tags, categories, getCategoryColor, refresh } = useTags();
+  const { tags, categories, getCategoryColor, mutateTags, mutateCategories } = useTags();
   const [tab, setTab] = useState<Tab>('tags');
   const [busy, setBusy] = useState(false);
 
@@ -40,9 +40,9 @@ export default function TagManager({ onClose }: TagManagerProps) {
   const [editCatId, setEditCatId] = useState<string | null>(null);
   const [editCatName, setEditCatName] = useState('');
 
-  async function run(fn: () => Promise<unknown>) {
+  async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
     setBusy(true);
-    try { await fn(); await refresh(); } catch (e: any) { alert(e.message); } finally { setBusy(false); }
+    try { return await fn(); } catch (e: any) { alert(e.message); return undefined; } finally { setBusy(false); }
   }
 
   // Tag add
@@ -55,8 +55,11 @@ export default function TagManager({ onClose }: TagManagerProps) {
 
   async function handleAddTag() {
     if (!addName.trim() || !addCategory) return;
-    await run(() => createTag({ name: addName.trim(), category: addCategory, keywords: addKeywords }));
-    setAddName(''); setAddKeywords([]); setAddKwInput(''); setShowAddForm(false);
+    const created = await run(() => createTag({ name: addName.trim(), category: addCategory, keywords: addKeywords }));
+    if (created) {
+      mutateTags(prev => [...prev, created]);
+      setAddName(''); setAddKeywords([]); setAddKwInput(''); setShowAddForm(false);
+    }
   }
 
   // Tag edit
@@ -74,20 +77,29 @@ export default function TagManager({ onClose }: TagManagerProps) {
 
   async function handleSaveTag() {
     if (!editTagId) return;
-    await run(() => updateTag(editTagId, { name: editName.trim(), category: editCategory, keywords: editKeywords }));
-    setEditTagId(null);
+    const updated = await run(() => updateTag(editTagId, { name: editName.trim(), category: editCategory, keywords: editKeywords }));
+    if (updated) {
+      mutateTags(prev => prev.map(t => t.id === editTagId ? updated : t));
+      setEditTagId(null);
+    }
   }
 
   async function handleDeleteTag(id: string) {
     if (!confirm('이 태그를 삭제할까요?')) return;
-    await run(() => deleteTag(id));
+    setBusy(true);
+    try { await deleteTag(id); mutateTags(prev => prev.filter(t => t.id !== id)); }
+    catch (e: any) { alert(e.message); }
+    finally { setBusy(false); }
   }
 
   // Category add
   async function handleAddCategory() {
     if (!addCatName.trim()) return;
-    await run(() => createCategory(addCatName.trim()));
-    setAddCatName(''); setShowAddCatForm(false);
+    const created = await run(() => createCategory(addCatName.trim()));
+    if (created) {
+      mutateCategories(prev => [...prev, created]);
+      setAddCatName(''); setShowAddCatForm(false);
+    }
   }
 
   // Category edit
@@ -98,14 +110,30 @@ export default function TagManager({ onClose }: TagManagerProps) {
   }
   async function handleSaveCat() {
     if (!editCatId) return;
-    await run(() => updateCategory(editCatId, editCatName.trim()));
-    setEditCatId(null);
+    const updated = await run(() => updateCategory(editCatId, editCatName.trim()));
+    if (updated) {
+      mutateCategories(prev => prev.map(c => c.id === editCatId ? updated : c));
+      mutateTags(prev => prev.map(t => {
+        const old = categories.find(c => c.id === editCatId);
+        return old && t.category === old.name ? { ...t, category: updated.name } : t;
+      }));
+      setEditCatId(null);
+    }
   }
   async function handleDeleteCat(id: string) {
     const cat = categories.find(c => c.id === id);
     if (!cat) return;
     if (!confirm(`"${cat.name}" 카테고리를 삭제할까요?\n이 카테고리의 태그는 '미분류'로 이동됩니다.`)) return;
-    await run(() => deleteCategory(id));
+    setBusy(true);
+    try {
+      await deleteCategory(id);
+      mutateCategories(prev => prev.filter(c => c.id !== id));
+      mutateTags(prev => prev.map(t => t.category === cat.name ? { ...t, category: '미분류' } : t));
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   // Tag list grouped by category
