@@ -2,6 +2,7 @@
   "functions": {
     "api/news.ts": { "maxDuration": 30 },
     "api/fetch.ts": { "maxDuration": 30 },
+    "api/briefing.ts": { "maxDuration": 30 },
     "api/tags.ts": { "maxDuration": 10 },
     "api/tags/[id].ts": { "maxDuration": 10 },
     "api/categories.ts": { "maxDuration": 10 },

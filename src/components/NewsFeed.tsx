@@ -4,6 +4,7 @@ import { Article } from '../types';
 import NewsCard from './NewsCard';
 import TagFilter from './TagFilter';
 import DateNavigation from './DateNavigation';
+import AiBriefing from './AiBriefing';
 import { Search, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -71,13 +72,15 @@ export default function NewsFeed() {
 
   return (
     <div className="w-full">
-      <DateNavigation 
+      <DateNavigation
         currentDate={currentDate}
         setCurrentDate={setCurrentDate}
         onRefresh={onRefresh}
         isRefreshing={isRefreshing}
         lastUpdated={lastUpdated}
       />
+
+      <AiBriefing articles={articles} date={currentDate} />
 
       <div className="relative mb-6">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 md:w-6 md:h-6 text-gray-400" />
