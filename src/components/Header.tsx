@@ -42,7 +42,7 @@ export default function Header({ onOpenSettings }: HeaderProps) {
         </div>
       </div>
 
-      <div className="absolute -top-1 right-0 md:relative md:top-auto md:right-auto z-10 flex items-center gap-2">
+      <div className="absolute -top-1 right-0 md:relative md:top-auto md:right-auto md:self-start z-10 flex items-center gap-2">
         <button
           onClick={onOpenSettings}
           className="group inline-flex items-center gap-1.5 md:gap-2.5 font-bold text-[9px] md:text-[11px] text-gray-500 dark:text-gray-400 hover:text-brand dark:hover:text-brand bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-100 dark:border-gray-800 px-2.5 py-1.5 md:px-4 md:py-2.5 rounded-full transition-all hover:border-brand/30 shadow-sm md:shadow-none"
