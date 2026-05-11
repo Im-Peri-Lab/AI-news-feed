@@ -20,7 +20,10 @@ export default function TagFilter({
   const allCategories = ['전체', ...categories.map(c => c.name)];
 
   const displayedTags = activeCategory === '전체'
-    ? tags
+    ? [
+        ...categories.flatMap(c => tags.filter(t => t.category === c.name)),
+        ...tags.filter(t => !categories.find(c => c.name === t.category)),
+      ]
     : tags.filter(t => t.category === activeCategory);
 
   const toggleTag = (tagName: string) => {
