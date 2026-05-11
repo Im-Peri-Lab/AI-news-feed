@@ -33,6 +33,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
   const [editKwInput, setEditKwInput] = useState('');
 
   // --- Category add form ---
+  const [showAddCatForm, setShowAddCatForm] = useState(false);
   const [addCatName, setAddCatName] = useState('');
 
   // --- Category edit state ---
@@ -86,7 +87,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
   async function handleAddCategory() {
     if (!addCatName.trim()) return;
     await run(() => createCategory(addCatName.trim()));
-    setAddCatName('');
+    setAddCatName(''); setShowAddCatForm(false);
   }
 
   // Category edit
@@ -243,6 +244,37 @@ export default function TagManager({ onClose }: TagManagerProps) {
             </>
           ) : (
             <>
+              {/* Add category toggle button / inline form */}
+              {!showAddCatForm ? (
+                <button
+                  onClick={() => setShowAddCatForm(true)}
+                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-dashed border-brand/40 text-brand text-sm font-bold hover:bg-brand-light/50 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />카테고리 추가
+                </button>
+              ) : (
+                <div className="border border-brand/25 bg-brand-light/20 dark:bg-gray-800 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-black text-brand uppercase tracking-wider">새 카테고리 추가</p>
+                    <button
+                      onClick={() => { setShowAddCatForm(false); setAddCatName(''); }}
+                      className={BTN_GHOST}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input value={addCatName} onChange={e => setAddCatName(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
+                      placeholder="카테고리명" className={cn(INPUT_CLS, "flex-1")} autoFocus />
+                    <button onClick={handleAddCategory} disabled={busy || !addCatName.trim()}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
+                      <Plus className="w-4 h-4" />추가
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Category list */}
               <div className="space-y-2">
                 {categories.map(cat => {
@@ -272,20 +304,6 @@ export default function TagManager({ onClose }: TagManagerProps) {
                     </div>
                   );
                 })}
-              </div>
-
-              {/* Add category form */}
-              <div className="border border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-4">
-                <p className="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-3">새 카테고리 추가</p>
-                <div className="flex gap-2">
-                  <input value={addCatName} onChange={e => setAddCatName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
-                    placeholder="카테고리명" className={cn(INPUT_CLS, "flex-1")} />
-                  <button onClick={handleAddCategory} disabled={busy || !addCatName.trim()}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
-                    <Plus className="w-4 h-4" />추가
-                  </button>
-                </div>
               </div>
             </>
           )}
