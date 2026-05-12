@@ -61,7 +61,7 @@ export default function Header({ onOpenSettings }: HeaderProps) {
           ) : (
             <Moon className="w-3 md:w-3.5 h-3 md:h-3.5 transition-transform group-hover:-rotate-12" />
           )}
-          <span className="uppercase tracking-widest">{isDark ? 'Light' : 'Dark'}</span>
+          <span className="uppercase tracking-widest hidden md:inline">{isDark ? 'Light' : 'Dark'}</span>
         </button>
       </div>
     </header>
