@@ -380,7 +380,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                                   <span key={kw} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-300">{kw}</span>
                                 ))}
                               </div>
-                              <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex gap-1 shrink-0">
                                 <button onClick={() => startEditTag(tag.id)} className={BTN_GHOST}><Pencil className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => handleDeleteTag(tag.id)} className={cn(BTN_GHOST, "hover:text-red-500")}><Trash2 className="w-3.5 h-3.5" /></button>
                               </div>
