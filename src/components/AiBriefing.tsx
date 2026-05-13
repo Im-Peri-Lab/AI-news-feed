@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { Sparkles, RefreshCw, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
+import { Sparkles, RefreshCw, ChevronUp, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { Article } from '../types';
 import { format } from 'date-fns';
 
@@ -55,7 +55,7 @@ function renderInline(text: string): ReactNode[] {
 
 function SectionLabel({ title }: { title: string }) {
   return (
-    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-brand mb-2.5">
+    <p className="text-[13px] md:text-sm font-black uppercase tracking-[0.18em] text-brand mb-3">
       {title}
     </p>
   );
@@ -73,11 +73,11 @@ function SummarySection({ lines }: { lines: string[] }) {
 
 function BulletList({ items }: { items: string[] }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5 md:space-y-3">
       {items.map((item, i) => (
         <div key={i} className="flex gap-2.5 items-start">
           <span className="shrink-0 mt-[9px] w-[5px] h-[5px] rounded-full bg-brand" />
-          <p className="text-[14px] leading-[1.7] text-gray-700 dark:text-gray-300">
+          <p className="text-[14px] leading-[1.65] text-gray-700 dark:text-gray-300">
             {renderInline(item)}
           </p>
         </div>
@@ -86,19 +86,59 @@ function BulletList({ items }: { items: string[] }) {
   );
 }
 
+function getCategoryBarColor(title: string): string {
+  if (title.includes('글로벌') || title.includes('빅테크')) return 'bg-[#3b82f6]';
+  if (title.includes('국내') || title.includes('AX')) return 'bg-[#10b981]';
+  if (title.includes('정책') || title.includes('사회')) return 'bg-[#f97316]';
+  return 'bg-gray-400 dark:bg-gray-500';
+}
+
 function FlowSection({ subsections, lines }: { subsections: SubSection[]; lines: string[] }) {
+  const [openIdx, setOpenIdx] = useState<Set<number>>(new Set([0]));
+
+  const toggle = (idx: number) => {
+    setOpenIdx(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
   if (subsections.length > 0) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-5 md:space-y-6">
         {subsections.map((sub, i) => {
           const items = extractBullets(sub.lines);
           if (!items.length) return null;
+          const isOpen = openIdx.has(i);
+          const barColor = getCategoryBarColor(sub.title);
           return (
             <div key={i}>
-              <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mb-2">
-                {sub.title}
-              </p>
-              <BulletList items={items} />
+              <button
+                type="button"
+                onClick={() => toggle(i)}
+                aria-expanded={isOpen}
+                className="flex items-center justify-between w-full text-left md:cursor-default mb-[10px]"
+              >
+                <div className="flex items-stretch gap-2.5">
+                  <span className={`w-[3px] self-stretch rounded-sm ${barColor}`} />
+                  <span className="text-[15px] md:text-sm font-semibold text-[#1a1a1a] dark:text-[#f5f5f5]">
+                    {sub.title}
+                  </span>
+                </div>
+                {isOpen
+                  ? <ChevronDown className="md:hidden w-4 h-4 text-gray-400 transition-transform duration-200" />
+                  : <ChevronRight className="md:hidden w-4 h-4 text-gray-400 transition-transform duration-200" />
+                }
+              </button>
+              <div
+                className={`grid transition-all duration-200 ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'} md:grid-rows-[1fr] md:opacity-100`}
+              >
+                <div className="overflow-hidden">
+                  <BulletList items={items} />
+                </div>
+              </div>
             </div>
           );
         })}
@@ -115,7 +155,7 @@ function FlowSection({ subsections, lines }: { subsections: SubSection[]; lines:
           <span className="shrink-0 w-[22px] h-[22px] rounded-full bg-brand/10 dark:bg-brand/20 text-brand text-[10px] font-black flex items-center justify-center mt-0.5">
             {i + 1}
           </span>
-          <p className="text-[14px] leading-[1.7] text-gray-700 dark:text-gray-300">
+          <p className="text-[14px] leading-[1.65] text-gray-700 dark:text-gray-300">
             {renderInline(line.replace(/^\d+\.\s*/, ''))}
           </p>
         </div>
@@ -173,7 +213,7 @@ function BriefingContent({ text }: { text: string }) {
         return (
           <div
             key={i}
-            className={i > 0 ? 'mt-5 pt-5 border-t border-gray-100 dark:border-gray-700' : ''}
+            className={i > 0 ? 'mt-[14px] pt-[14px] md:mt-[18px] md:pt-[18px] border-t border-gray-200 dark:border-gray-700' : ''}
           >
             <SectionLabel title={section.title} />
             {isSummary && <SummarySection lines={section.lines} />}
@@ -181,9 +221,9 @@ function BriefingContent({ text }: { text: string }) {
             {isClues && <CluesSection lines={section.lines} />}
             {isMustRead && <MustReadSection lines={section.lines} />}
             {!isSummary && !isFlow && !isClues && !isMustRead && (
-              <div className="space-y-2">
+              <div className="space-y-2.5 md:space-y-3">
                 {section.lines.filter(l => l.trim()).map((line, j) => (
-                  <p key={j} className="text-[14px] leading-[1.7] text-gray-700 dark:text-gray-300">
+                  <p key={j} className="text-[14px] leading-[1.65] text-gray-700 dark:text-gray-300">
                     {renderInline(line)}
                   </p>
                 ))}
@@ -249,9 +289,9 @@ export default function AiBriefing({ articles, date }: Props) {
   const showContent = hasGenerated || isGenerating;
 
   return (
-    <div className="mb-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
+    <div className="mb-8 rounded-lg bg-gray-50 dark:bg-gray-900/30 p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-brand" />
           <span className="font-bold text-[15px] text-gray-900 dark:text-white">AI 브리핑</span>
@@ -272,6 +312,7 @@ export default function AiBriefing({ articles, date }: Props) {
           )}
           <button
             onClick={() => setIsCollapsed(v => !v)}
+            aria-expanded={!isCollapsed}
             className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
           >
             {isCollapsed
@@ -284,7 +325,7 @@ export default function AiBriefing({ articles, date }: Props) {
 
       {/* Body */}
       {!isCollapsed && (
-        <div className="border-t border-gray-50 dark:border-gray-700 px-5 py-5">
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700/60">
           {!showContent ? (
             <div className="flex flex-col items-center gap-3 py-2">
               <p className="text-[13px] text-gray-400 text-center">
