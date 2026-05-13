@@ -8,21 +8,41 @@ interface Props {
   date: Date;
 }
 
-type Section = { title: string; lines: string[] };
+type SubSection = { title: string; lines: string[] };
+type Section = { title: string; lines: string[]; subsections: SubSection[] };
 
 function parseSections(text: string): Section[] {
   const sections: Section[] = [];
   let current: Section | null = null;
+  let currentSub: SubSection | null = null;
   for (const line of text.split('\n')) {
     if (line.startsWith('## ')) {
+      if (current && currentSub) {
+        current.subsections.push(currentSub);
+        currentSub = null;
+      }
       if (current) sections.push(current);
-      current = { title: line.slice(3).trim(), lines: [] };
+      current = { title: line.slice(3).trim(), lines: [], subsections: [] };
+    } else if (line.startsWith('### ') && current) {
+      if (currentSub) current.subsections.push(currentSub);
+      currentSub = { title: line.slice(4).trim(), lines: [] };
+    } else if (currentSub) {
+      currentSub.lines.push(line);
     } else if (current) {
       current.lines.push(line);
     }
   }
+  if (current && currentSub) current.subsections.push(currentSub);
   if (current) sections.push(current);
   return sections;
+}
+
+function extractBullets(lines: string[]): string[] {
+  return lines
+    .map(l => l.trim())
+    .filter(l => l.length > 0)
+    .filter(l => /^[-•*]\s+/.test(l) || /^\d+\.\s/.test(l))
+    .map(l => l.replace(/^[-•*]\s+|^\d+\.\s*/, '').trim());
 }
 
 function renderInline(text: string): ReactNode[] {
@@ -51,12 +71,46 @@ function SummarySection({ lines }: { lines: string[] }) {
   );
 }
 
-function FlowSection({ lines }: { lines: string[] }) {
-  const items = lines.filter(l => /^\d+\.\s/.test(l));
-  if (!items.length) return null;
+function BulletList({ items }: { items: string[] }) {
+  return (
+    <div className="space-y-2">
+      {items.map((item, i) => (
+        <div key={i} className="flex gap-2.5 items-start">
+          <span className="shrink-0 mt-[9px] w-[5px] h-[5px] rounded-full bg-brand" />
+          <p className="text-[14px] leading-[1.7] text-gray-700 dark:text-gray-300">
+            {renderInline(item)}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FlowSection({ subsections, lines }: { subsections: SubSection[]; lines: string[] }) {
+  if (subsections.length > 0) {
+    return (
+      <div className="space-y-4">
+        {subsections.map((sub, i) => {
+          const items = extractBullets(sub.lines);
+          if (!items.length) return null;
+          return (
+            <div key={i}>
+              <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mb-2">
+                {sub.title}
+              </p>
+              <BulletList items={items} />
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const numbered = lines.filter(l => /^\d+\.\s/.test(l));
+  if (!numbered.length) return null;
   return (
     <div className="space-y-3.5">
-      {items.map((line, i) => (
+      {numbered.map((line, i) => (
         <div key={i} className="flex gap-3 items-start">
           <span className="shrink-0 w-[22px] h-[22px] rounded-full bg-brand/10 dark:bg-brand/20 text-brand text-[10px] font-black flex items-center justify-center mt-0.5">
             {i + 1}
@@ -68,6 +122,12 @@ function FlowSection({ lines }: { lines: string[] }) {
       ))}
     </div>
   );
+}
+
+function CluesSection({ lines }: { lines: string[] }) {
+  const items = extractBullets(lines);
+  if (!items.length) return null;
+  return <BulletList items={items} />;
 }
 
 function MustReadSection({ lines }: { lines: string[] }) {
@@ -107,6 +167,7 @@ function BriefingContent({ text }: { text: string }) {
       {sections.map((section, i) => {
         const isSummary = section.title.includes('요약');
         const isFlow = section.title.includes('흐름');
+        const isClues = section.title.includes('단서') || section.title.includes('지켜볼');
         const isMustRead = section.title.includes('놓치지');
 
         return (
@@ -116,9 +177,10 @@ function BriefingContent({ text }: { text: string }) {
           >
             <SectionLabel title={section.title} />
             {isSummary && <SummarySection lines={section.lines} />}
-            {isFlow && <FlowSection lines={section.lines} />}
+            {isFlow && <FlowSection subsections={section.subsections} lines={section.lines} />}
+            {isClues && <CluesSection lines={section.lines} />}
             {isMustRead && <MustReadSection lines={section.lines} />}
-            {!isSummary && !isFlow && !isMustRead && (
+            {!isSummary && !isFlow && !isClues && !isMustRead && (
               <div className="space-y-2">
                 {section.lines.filter(l => l.trim()).map((line, j) => (
                   <p key={j} className="text-[14px] leading-[1.7] text-gray-700 dark:text-gray-300">
