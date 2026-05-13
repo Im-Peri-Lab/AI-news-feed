@@ -28,15 +28,15 @@ export default function Header({ onOpenSettings }: HeaderProps) {
   return (
     <header className="relative flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6 md:mb-10 pb-8 border-b border-gray-100 dark:border-gray-800">
       <div className="title-area flex flex-col gap-2 md:mr-0 mr-12">
-        <div className="flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-2">
           <span className="w-1.5 h-1.5 bg-brand rounded-full"></span>
           <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">Curated Intelligence</span>
         </div>
         <div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-gray-900 dark:text-white leading-none">
+          <h1 className="text-2xl md:text-3xl font-black tracking-tighter text-gray-900 dark:text-white leading-none">
             AI<span className="text-brand mx-0.5">/</span>AX NEWS FEED
           </h1>
-          <p className="mt-3 text-[13px] md:text-base text-gray-500 dark:text-gray-400 font-medium leading-relaxed max-w-[280px] md:max-w-none">
+          <p className="hidden md:block mt-3 text-[13px] md:text-base text-gray-500 dark:text-gray-400 font-medium leading-relaxed max-w-[280px] md:max-w-none">
             인공지능과 디지털 혁신의 흐름을 <br className="md:hidden" /> 가장 명확한 시선으로 읽어드립니다.
           </p>
         </div>
