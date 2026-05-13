@@ -369,7 +369,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                               onDragOver={e => onTagDragOver(e, idx, catName)}
                               onDragEnd={cleanDrag}
                               className={cn(
-                                "flex items-start gap-2 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
+                                "flex items-start gap-2 px-3 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
                                 dragId === tag.id && "opacity-50"
                               )}
                             >
