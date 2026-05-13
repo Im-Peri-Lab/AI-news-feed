@@ -15,25 +15,55 @@ function parseSections(text: string): Section[] {
   const sections: Section[] = [];
   let current: Section | null = null;
   let currentSub: SubSection | null = null;
-  for (const line of text.split('\n')) {
-    if (line.startsWith('## ')) {
-      if (current && currentSub) {
-        current.subsections.push(currentSub);
-        currentSub = null;
+
+  const stripFormatting = (s: string) =>
+    s.replace(/\*\*/g, '').replace(/[:：]\s*$/, '').trim();
+
+  for (const rawLine of text.split('\n')) {
+    const trimmed = rawLine.trim();
+
+    const h2 = /^##(?!#)\s*(.+?)\s*$/.exec(trimmed);
+    if (h2) {
+      if (current) {
+        if (currentSub) {
+          current.subsections.push(currentSub);
+          currentSub = null;
+        }
+        sections.push(current);
       }
-      if (current) sections.push(current);
-      current = { title: line.slice(3).trim(), lines: [], subsections: [] };
-    } else if (line.startsWith('### ') && current) {
+      current = { title: stripFormatting(h2[1]), lines: [], subsections: [] };
+      continue;
+    }
+
+    const h3 = /^###(?!#)\s*(.+?)\s*$/.exec(trimmed);
+    if (h3 && current) {
       if (currentSub) current.subsections.push(currentSub);
-      currentSub = { title: line.slice(4).trim(), lines: [] };
-    } else if (currentSub) {
-      currentSub.lines.push(line);
+      currentSub = { title: stripFormatting(h3[1]), lines: [] };
+      continue;
+    }
+
+    // Inside flow-style sections, accept a bold-only line as a subsection header.
+    if (current && /흐름/.test(current.title)) {
+      const boldOnly = /^\*\*\s*([^*\n]+?)\s*\*\*[:：]?\s*$/.exec(trimmed);
+      if (boldOnly) {
+        if (currentSub) current.subsections.push(currentSub);
+        currentSub = { title: stripFormatting(boldOnly[1]), lines: [] };
+        continue;
+      }
+    }
+
+    if (currentSub) {
+      currentSub.lines.push(rawLine);
     } else if (current) {
-      current.lines.push(line);
+      current.lines.push(rawLine);
     }
   }
-  if (current && currentSub) current.subsections.push(currentSub);
-  if (current) sections.push(current);
+
+  if (current) {
+    if (currentSub) current.subsections.push(currentSub);
+    sections.push(current);
+  }
+
   return sections;
 }
 
@@ -93,6 +123,12 @@ function getCategoryBarColor(title: string): string {
   return 'bg-gray-400 dark:bg-gray-500';
 }
 
+function hasFlowContent(subsections: SubSection[], lines: string[]): boolean {
+  if (subsections.some(s => extractBullets(s.lines).length > 0)) return true;
+  if (extractBullets(lines).length > 0) return true;
+  return lines.some(l => l.trim().length > 0);
+}
+
 function FlowSection({ subsections, lines }: { subsections: SubSection[]; lines: string[] }) {
   const [openIdx, setOpenIdx] = useState<Set<number>>(new Set([0]));
 
@@ -105,12 +141,14 @@ function FlowSection({ subsections, lines }: { subsections: SubSection[]; lines:
     });
   };
 
-  if (subsections.length > 0) {
+  const validSubs = subsections
+    .map(sub => ({ title: sub.title, items: extractBullets(sub.lines) }))
+    .filter(s => s.items.length > 0);
+
+  if (validSubs.length > 0) {
     return (
       <div className="space-y-5 md:space-y-6">
-        {subsections.map((sub, i) => {
-          const items = extractBullets(sub.lines);
-          if (!items.length) return null;
+        {validSubs.map((sub, i) => {
           const isOpen = openIdx.has(i);
           const barColor = getCategoryBarColor(sub.title);
           return (
@@ -136,7 +174,7 @@ function FlowSection({ subsections, lines }: { subsections: SubSection[]; lines:
                 className={`grid transition-all duration-200 ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'} md:grid-rows-[1fr] md:opacity-100`}
               >
                 <div className="overflow-hidden">
-                  <BulletList items={items} />
+                  <BulletList items={sub.items} />
                 </div>
               </div>
             </div>
@@ -146,22 +184,35 @@ function FlowSection({ subsections, lines }: { subsections: SubSection[]; lines:
     );
   }
 
-  const numbered = lines.filter(l => /^\d+\.\s/.test(l));
-  if (!numbered.length) return null;
-  return (
-    <div className="space-y-3.5">
-      {numbered.map((line, i) => (
-        <div key={i} className="flex gap-3 items-start">
-          <span className="shrink-0 w-[22px] h-[22px] rounded-full bg-brand/10 dark:bg-brand/20 text-brand text-[10px] font-black flex items-center justify-center mt-0.5">
-            {i + 1}
-          </span>
-          <p className="text-[14px] leading-[1.65] text-gray-700 dark:text-gray-300">
-            {renderInline(line.replace(/^\d+\.\s*/, ''))}
+  // Fallback A: subsection split failed but bullets exist somewhere — show flat list
+  const flatBullets = [
+    ...extractBullets(lines),
+    ...subsections.flatMap(s => extractBullets(s.lines)),
+  ];
+  if (flatBullets.length > 0) {
+    return <BulletList items={flatBullets} />;
+  }
+
+  // Fallback B: no bullets at all — render any remaining prose as paragraphs
+  const proseLines = [
+    ...lines,
+    ...subsections.flatMap(s => [s.title, ...s.lines]),
+  ]
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
+  if (proseLines.length > 0) {
+    return (
+      <div className="space-y-2.5 md:space-y-3">
+        {proseLines.map((line, i) => (
+          <p key={i} className="text-[14px] leading-[1.65] text-gray-700 dark:text-gray-300">
+            {renderInline(line)}
           </p>
-        </div>
-      ))}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function CluesSection({ lines }: { lines: string[] }) {
@@ -209,6 +260,10 @@ function BriefingContent({ text }: { text: string }) {
         const isFlow = section.title.includes('흐름');
         const isClues = section.title.includes('단서') || section.title.includes('지켜볼');
         const isMustRead = section.title.includes('놓치지');
+
+        if (isFlow && !hasFlowContent(section.subsections, section.lines)) {
+          return null;
+        }
 
         return (
           <div
