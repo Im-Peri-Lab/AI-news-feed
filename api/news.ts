@@ -137,17 +137,19 @@ function processArticle(item: any, TAGS: TagSpec[]) {
 }
 
 async function fetchWithRetry(query: string, retries = 2, backoff = 2000): Promise<any[]> {
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
+  // Add timestamp to bypass Google's server-side cache and get fresh results each request
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko&_t=${Date.now()}`;
 
   for (let i = 0; i < retries; i++) {
     try {
       const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
       const response = await fetch(url, {
+        cache: 'no-store',
         headers: {
           'User-Agent': userAgent,
           'Accept': 'application/rss+xml, application/xml;q=0.9, */*;q=0.8',
           'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
         },
       });
@@ -205,12 +207,16 @@ export default async function handler(req: any, res: any) {
     const todayKst = getKstDateStr(new Date());
     const targetDate = typeof req.query.date === 'string' ? req.query.date : todayKst;
 
-    // Google News RSS supports when:1d (today) and when:7d (past dates).
-    // Intermediate values like when:2d are not reliably supported.
     const daysAgo = daysAgoFromToday(targetDate, todayKst);
-    const whenParam = daysAgo === 0 ? 'when:1d' : 'when:7d';
 
-    const queries = BASE_QUERIES.map(q => `${q} ${whenParam}`);
+    // "when:2d" gives a 48-hour window, capturing articles from 00:00 KST today
+    // even when queried early morning (avoids the 24h sliding-window gap).
+    // "after:YYYY-MM-DD" was avoided because Google interprets it in UTC, which
+    // would exclude articles published 00:00–08:59 KST (= previous UTC day).
+    // For past dates beyond 1 day: "when:7d"; the date filter below narrows the result.
+    const dateParam = daysAgo === 0 ? 'when:2d' : 'when:7d';
+
+    const queries = BASE_QUERIES.map(q => `${q} ${dateParam}`);
 
     let tags: TagSpec[];
     try {
@@ -226,7 +232,27 @@ export default async function handler(req: any, res: any) {
       .filter(a => a.publishedDate === targetDate)
       .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
+    // Debug: log articles excluded by the date filter so timezone issues are visible
+    const excluded = articles.filter(a => a.publishedDate !== targetDate);
+    if (excluded.length > 0) {
+      console.log(
+        `[api/news] date-filter excluded ${excluded.length} articles` +
+        ` (targetDate=${targetDate}, totalFetched=${articles.length}, shown=${filtered.length})`
+      );
+      excluded.slice(0, 10).forEach(a =>
+        console.log(
+          `[api/news]   EXCLUDED publishedDate=${a.publishedDate}` +
+          ` pubISO=${a.publishedAt} title="${a.title.slice(0, 60)}"`
+        )
+      );
+    }
+
     const dateSample = [...new Set(articles.map(a => a.publishedDate))].sort();
+    const excludedDates = Object.fromEntries(
+      dateSample
+        .filter(d => d !== targetDate)
+        .map(d => [d, articles.filter(a => a.publishedDate === d).length])
+    );
 
     res.json({
       total: filtered.length,
@@ -235,8 +261,11 @@ export default async function handler(req: any, res: any) {
         todayKst,
         targetDate,
         daysAgo,
-        whenParam,
+        dateParam,
         totalFetched: articles.length,
+        shown: filtered.length,
+        excludedByDateFilter: excluded.length,
+        excludedDates,
         datesInRss: dateSample,
       },
     });
