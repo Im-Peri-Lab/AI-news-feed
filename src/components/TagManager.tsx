@@ -461,7 +461,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                           dragCatId === cat.id && "opacity-50"
                         )}
                       >
-                        <GripVertical className="w-4 h-4 shrink-0 text-gray-300 dark:text-gray-600 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <GripVertical className="w-4 h-4 shrink-0 text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                         <span className={cn("px-2 py-0.5 rounded text-[10px] font-black border shrink-0", cat.color.bg, cat.color.text, cat.color.border)}>
                           {cat.name}
                         </span>
