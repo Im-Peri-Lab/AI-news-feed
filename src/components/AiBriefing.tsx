@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { Sparkles, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
+import { Sparkles, RefreshCw, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
 import { Article } from '../types';
 import { format } from 'date-fns';
 
@@ -242,9 +242,20 @@ export default function AiBriefing({ articles, date }: Props) {
             </div>
           ) : (
             <div>
-              <BriefingContent text={text} />
-              {isGenerating && (
-                <span className="inline-block w-[2px] h-[1em] bg-brand animate-pulse align-middle ml-0.5" />
+              {isGenerating && !text ? (
+                <div className="flex items-center gap-2.5 py-2">
+                  <Loader2 className="w-4 h-4 text-brand animate-spin shrink-0" />
+                  <span className="text-[13px] font-medium text-gray-500 dark:text-gray-400">
+                    AI가 브리핑을 생성하고 있습니다...
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <BriefingContent text={text} />
+                  {isGenerating && (
+                    <span className="inline-block w-[2px] h-[1em] bg-brand animate-pulse align-middle ml-0.5" />
+                  )}
+                </>
               )}
             </div>
           )}
