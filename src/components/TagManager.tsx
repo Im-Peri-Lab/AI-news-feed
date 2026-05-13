@@ -245,13 +245,13 @@ export default function TagManager({ onClose }: TagManagerProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl flex flex-col max-h-[90vh] shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
+        <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
           <h2 className="text-base font-black text-gray-900 dark:text-white">태그 관리</h2>
           <button onClick={onClose} className={BTN_GHOST}><X className="w-5 h-5" /></button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100 dark:border-gray-800 shrink-0 px-6">
+        <div className="flex border-b border-gray-100 dark:border-gray-800 shrink-0 px-4">
           {(['tags', 'categories'] as Tab[]).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={cn("px-1 py-3 mr-6 text-[13px] font-extrabold transition-all relative",
@@ -265,7 +265,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {tab === 'tags' ? (
             <>
               {/* Add tag toggle button / inline form */}
@@ -369,12 +369,12 @@ export default function TagManager({ onClose }: TagManagerProps) {
                               onDragOver={e => onTagDragOver(e, idx, catName)}
                               onDragEnd={cleanDrag}
                               className={cn(
-                                "flex items-start gap-2 px-3 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
+                                "flex items-start gap-2 px-2 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
                                 dragId === tag.id && "opacity-50"
                               )}
                             >
                               <GripVertical className="w-4 h-4 shrink-0 mt-0.5 text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
-                              <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 w-28 truncate">{tag.name}</span>
+                              <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 w-20 truncate">{tag.name}</span>
                               <div className="flex-1 flex flex-wrap gap-1">
                                 {tag.keywords.map(kw => (
                                   <span key={kw} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-300">{kw}</span>
@@ -457,7 +457,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                         onDragOver={e => onCatDragOver(e, idx)}
                         onDragEnd={cleanCatDrag}
                         className={cn(
-                          "flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
+                          "flex items-center gap-2 px-2 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
                           dragCatId === cat.id && "opacity-50"
                         )}
                       >
