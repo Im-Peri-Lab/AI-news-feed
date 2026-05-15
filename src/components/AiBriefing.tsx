@@ -344,9 +344,9 @@ export default function AiBriefing({ articles, date }: Props) {
   const showContent = hasGenerated || isGenerating;
 
   return (
-    <div className="mb-4 rounded-2xl bg-white dark:bg-gray-800 shadow-sm p-4 md:p-6">
+    <div className="mb-4 rounded-2xl bg-white dark:bg-gray-800 shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between h-12 md:h-14 px-4 md:px-6">
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-brand" />
           <span className="font-bold text-[15px] text-gray-900 dark:text-white">AI 브리핑</span>
@@ -380,7 +380,7 @@ export default function AiBriefing({ articles, date }: Props) {
 
       {/* Body */}
       {!isCollapsed && (
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700/60">
+        <div className="px-4 md:px-6 pb-4 md:pb-6 pt-4 border-t border-gray-200 dark:border-gray-700/60">
           {!showContent ? (
             <div className="flex flex-col items-center gap-3 py-2">
               <p className="text-[13px] text-gray-400 text-center">
