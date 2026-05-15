@@ -209,12 +209,11 @@ export default async function handler(req: any, res: any) {
 
     const daysAgo = daysAgoFromToday(targetDate, todayKst);
 
-    // "when:2d" gives a 48-hour window, capturing articles from 00:00 KST today
-    // even when queried early morning (avoids the 24h sliding-window gap).
-    // "after:YYYY-MM-DD" was avoided because Google interprets it in UTC, which
-    // would exclude articles published 00:00–08:59 KST (= previous UTC day).
-    // For past dates beyond 1 day: "when:7d"; the date filter below narrows the result.
-    const dateParam = daysAgo === 0 ? 'when:2d' : 'when:7d';
+    // Google News RSS only reliably supports when:1d and when:7d.
+    // Intermediate values like when:2d over-include the previous day, shrinking
+    // today's result set (see commit 963b49a). The publishedDate===targetDate
+    // filter below narrows when:7d to the requested past date.
+    const dateParam = daysAgo === 0 ? 'when:1d' : 'when:7d';
 
     const queries = BASE_QUERIES.map(q => `${q} ${dateParam}`);
 
