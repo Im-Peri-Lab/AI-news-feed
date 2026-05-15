@@ -11,7 +11,6 @@ import { GoogleGenAI } from '@google/genai';
 const app = express();
 const parser = new Parser();
 
-// Core Tagging Logic (Shared or implemented here)
 const TAGS = [
   { id: 'gen-ai', name: '생성형 AI', category: '기술', keywords: ['생성형 AI', 'generative AI', '생성형 인공지능'] },
   { id: 'llm', name: 'LLM', category: '기술', keywords: ['LLM', '대규모 언어모델', '언어모델', 'Large Language Model'] },

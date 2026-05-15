@@ -1,11 +1,3 @@
-export enum Category {
-  ALL = '전체',
-  GLOBAL = '글로벌',
-  DOMESTIC = '국내',
-  TECH = '기술',
-  MODEL = '모델',
-}
-
 export interface TagSpec {
   id: string;
   name: string;
