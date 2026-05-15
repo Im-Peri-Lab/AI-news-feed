@@ -8,7 +8,6 @@ import AiBriefing from './AiBriefing';
 import { Search, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
 
 export default function NewsFeed() {
   const [articles, setArticles] = useState<Article[]>([]);

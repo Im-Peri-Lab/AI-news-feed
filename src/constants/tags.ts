@@ -36,15 +36,6 @@ export const DEFAULT_CATEGORIES: CategoryDef[] = [
   { id: 'domestic', name: '국내', color: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100' } },
 ];
 
-export const COLOR_PALETTE = [
-  { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-100' },
-  { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-100' },
-  { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-100' },
-  { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-100' },
-  { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-100' },
-  { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-100' },
-];
-
 export const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   '전체': { bg: 'bg-brand-light', text: 'text-brand', border: 'border-brand/20' },
   '글로벌': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-100' },

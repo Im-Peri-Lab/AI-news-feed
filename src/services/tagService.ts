@@ -13,10 +13,6 @@ async function request(url: string, method: string, body?: unknown) {
   return res.json();
 }
 
-export async function fetchTagsAndCategories(): Promise<{ tags: TagSpec[]; categories: CategoryDef[] }> {
-  return request('/api/tags', 'GET');
-}
-
 export async function createTag(data: { name: string; category: string; keywords: string[] }): Promise<TagSpec> {
   return request('/api/tags', 'POST', data);
 }
