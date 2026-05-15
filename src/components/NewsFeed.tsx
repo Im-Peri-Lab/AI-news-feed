@@ -81,14 +81,14 @@ export default function NewsFeed() {
 
       <AiBriefing articles={articles} date={currentDate} />
 
-      <div className="relative mb-6">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 md:w-6 md:h-6 text-gray-400" />
-        <input 
-          type="text" 
+      <div className="relative mb-4 md:mb-6">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
+        <input
+          type="text"
           placeholder="기사 제목 검색"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full h-12 md:h-14 pl-12 md:pl-14 pr-12 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl md:rounded-2xl text-[15px] md:text-lg outline-none focus:border-brand transition-all shadow-sm dark:text-white"
+          className="w-full h-12 md:h-14 pl-11 md:pl-12 pr-12 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-800 rounded-2xl text-[15px] md:text-lg outline-none focus:border-brand transition-all shadow-sm dark:text-white"
         />
         {search && (
           <button 
@@ -107,7 +107,7 @@ export default function NewsFeed() {
         setActiveCategory={setActiveCategory}
       />
 
-      <div className="flex justify-between items-center mb-5 px-1 relative z-10">
+      <div className="flex justify-between items-center mb-4 md:mb-6 px-1 relative z-10">
         <div className="text-[13px] md:text-sm font-black text-gray-900 dark:text-white">
           총 <span className="text-brand">{filteredArticles.length}</span>건
         </div>

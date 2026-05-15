@@ -43,7 +43,7 @@ export default function TagFilter({
   };
 
   return (
-    <div className="space-y-4 mb-8">
+    <div className="space-y-4 mb-4 md:mb-6">
       {/* Category Tabs Wrapper */}
       <div className="flex items-center gap-3 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide mb-4 touch-pan-x">
         <Filter className="w-4 h-4 text-gray-400 shrink-0 ml-1 translate-y-[1px]" />
@@ -90,7 +90,7 @@ export default function TagFilter({
 
       {/* Selected Tags Area - Shown Only if tags are selected */}
       {selectedTags.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-800 rounded-2xl p-3 shadow-sm">
           <div className="flex justify-between items-center mb-2">
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">선택된 태그</span>
             <button
@@ -108,7 +108,7 @@ export default function TagFilter({
                 <span
                   key={tagName}
                   className={cn(
-                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap border shrink-0",
+                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap border shrink-0",
                     color.bg, color.text, color.border
                   )}
                 >

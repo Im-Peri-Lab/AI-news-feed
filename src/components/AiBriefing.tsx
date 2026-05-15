@@ -344,7 +344,7 @@ export default function AiBriefing({ articles, date }: Props) {
   const showContent = hasGenerated || isGenerating;
 
   return (
-    <div className="mb-4 rounded-2xl bg-white dark:bg-gray-800 shadow-sm">
+    <div className="mb-4 md:mb-6 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between h-12 md:h-14 px-4 md:px-6">
         <div className="flex items-center gap-1.5">

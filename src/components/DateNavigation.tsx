@@ -26,7 +26,7 @@ export default function DateNavigation({
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 md:mb-6">
       <div className="flex items-center gap-2 flex-1 md:flex-none">
-        <div className="flex items-center gap-1 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl px-2 h-12 md:h-14 flex-1 md:flex-none relative overflow-hidden shadow-sm">
+        <div className="flex items-center gap-1 border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 rounded-2xl px-2 h-12 md:h-14 flex-1 md:flex-none relative overflow-hidden shadow-sm">
           <button 
             onClick={() => setCurrentDate(subDays(currentDate, 1))}
             className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors shrink-0"
@@ -66,7 +66,7 @@ export default function DateNavigation({
         <button 
           onClick={onRefresh}
           disabled={isRefreshing}
-          className="flex items-center justify-center gap-2 font-bold px-4 md:px-6 h-12 md:h-14 bg-brand hover:bg-brand-hover text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-brand-light dark:shadow-none shrink-0"
+          className="flex items-center justify-center gap-2 font-bold px-4 md:px-6 h-12 md:h-14 bg-brand hover:bg-brand-hover text-white rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-brand-light dark:shadow-none shrink-0"
         >
           <RefreshCw className={`w-4 h-4 md:w-5 md:h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
           <span className="text-sm md:text-base">{isRefreshing ? '수집중' : '조회'}</span>
