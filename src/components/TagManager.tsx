@@ -373,9 +373,9 @@ export default function TagManager({ onClose }: TagManagerProps) {
                                 dragId === tag.id && "opacity-50"
                               )}
                             >
-                              <GripVertical className="w-4 h-4 shrink-0 mt-0.5 text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
-                              <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 w-20 truncate leading-5">{tag.name}</span>
-                              <div className="flex-1 flex flex-wrap items-center content-start gap-1 min-h-5">
+                              <GripVertical className="w-4 h-4 shrink-0 mt-[5px] text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                              <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 w-20 truncate leading-5 mt-[3px]">{tag.name}</span>
+                              <div className="flex-1 flex flex-wrap items-center content-start gap-1 min-h-5 mt-[3px]">
                                 {tag.keywords.map(kw => (
                                   <span key={kw} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-300">{kw}</span>
                                 ))}
