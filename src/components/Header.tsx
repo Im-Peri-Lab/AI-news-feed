@@ -42,7 +42,7 @@ export default function Header({ onOpenSettings }: HeaderProps) {
         </div>
       </div>
 
-      <div className="z-10 flex items-center gap-2.5 md:gap-2 md:self-start shrink-0">
+      <div className="z-10 flex items-center gap-0 md:gap-2 md:self-start shrink-0">
         <button
           onClick={onOpenSettings}
           className="group inline-flex items-center text-gray-500 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition-all p-1 md:p-0 md:gap-2.5 md:px-4 md:py-2.5 md:rounded-full md:bg-white/80 md:dark:bg-gray-900/80 md:backdrop-blur-sm md:border md:border-gray-100 md:dark:border-gray-800 md:hover:border-brand/30 md:font-bold md:text-[11px]"
