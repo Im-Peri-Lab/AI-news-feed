@@ -16,11 +16,19 @@ const DIM_CLS = "opacity-50 pointer-events-none transition-opacity";
 
 // Area-scoped loading overlay. Parent must be `relative`; render this as a
 // sibling of the dimmed content so the spinner itself stays at full opacity.
+// The white chip behind the icon keeps the brand-colored spinner legible on
+// the pink-tinted brand-light form backgrounds.
 function LoadingOverlay({ size = 'md' }: { size?: 'sm' | 'md' }) {
   const iconCls = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
+  const padCls = size === 'sm' ? 'p-1.5' : 'p-2';
   return (
     <div className="absolute inset-0 flex items-center justify-center">
-      <Loader2 className={cn(iconCls, "text-brand animate-spin")} />
+      <div className={cn(
+        "rounded-full bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-200 dark:ring-gray-700",
+        padCls
+      )}>
+        <Loader2 className={cn(iconCls, "text-brand animate-spin")} />
+      </div>
     </div>
   );
 }
