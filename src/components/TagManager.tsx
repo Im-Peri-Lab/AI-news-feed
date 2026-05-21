@@ -424,7 +424,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                             >
                               <div className={cn("flex items-start gap-2 px-2 py-2.5", spinnerKey === `delete-tag:${tag.id}` && DIM_CLS)}>
                                 <GripVertical className="w-4 h-4 shrink-0 mt-[5px] text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
-                                <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 w-20 truncate leading-5 mt-[3px]">{tag.name}</span>
+                                <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 min-w-20 max-w-[40%] truncate leading-5 mt-[3px]">{tag.name}</span>
                                 <div className="flex-1 flex flex-wrap items-center content-start gap-1 min-h-5 mt-[3px]">
                                   {tag.keywords.map(kw => (
                                     <span key={kw} className={KEYWORD_CHIP_CLS}>{kw}</span>
