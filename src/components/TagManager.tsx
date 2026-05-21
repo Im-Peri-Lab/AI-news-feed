@@ -481,6 +481,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
               >
                 {categories.map((cat, idx) => {
                   const tagCount = tags.filter(t => t.category === cat.name).length;
+                  const rowBusy = spinnerKey === `save-cat:${cat.id}` || spinnerKey === `delete-cat:${cat.id}`;
                   return (
                     <div key={cat.id}>
                       {dragCatInsertIdx === idx && (
@@ -500,21 +501,18 @@ export default function TagManager({ onClose }: TagManagerProps) {
                           dragCatId === cat.id && "opacity-50"
                         )}
                       >
-                        <div className={cn("flex items-center gap-2 px-2 py-2.5", spinnerKey === `delete-cat:${cat.id}` && DIM_CLS)}>
+                        <div className={cn("flex items-center gap-2 px-2 py-2.5", rowBusy && DIM_CLS)}>
                           <GripVertical className="w-4 h-4 shrink-0 text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                           <span className={cn("px-2 py-0.5 rounded text-[10px] font-black border shrink-0", cat.color.bg, cat.color.text, cat.color.border)}>
                             {cat.name}
                           </span>
                           {editCatId === cat.id ? (
-                            <div className="relative flex-1">
-                              <div className={cn("flex items-center gap-2", spinnerKey === `save-cat:${cat.id}` && DIM_CLS)}>
-                                <input value={editCatName} onChange={e => setEditCatName(e.target.value)}
-                                  onKeyDown={e => e.key === 'Enter' && handleSaveCat()}
-                                  className={cn(INPUT_CLS, "flex-1 h-8 text-xs")} autoFocus />
-                                <button onClick={handleSaveCat} disabled={busy} className="p-1.5 text-brand hover:bg-brand/10 rounded-lg disabled:opacity-50"><Check className="w-4 h-4" /></button>
-                                <button onClick={() => setEditCatId(null)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")}><X className="w-4 h-4" /></button>
-                              </div>
-                              {spinnerKey === `save-cat:${cat.id}` && <LoadingOverlay size="sm" />}
+                            <div className="flex-1 flex items-center gap-2">
+                              <input value={editCatName} onChange={e => setEditCatName(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleSaveCat()}
+                                className={cn(INPUT_CLS, "flex-1 h-8 text-xs")} autoFocus />
+                              <button onClick={handleSaveCat} disabled={busy} className="p-1.5 text-brand hover:bg-brand/10 rounded-lg disabled:opacity-50"><Check className="w-4 h-4" /></button>
+                              <button onClick={() => setEditCatId(null)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")}><X className="w-4 h-4" /></button>
                             </div>
                           ) : (
                             <>
@@ -526,7 +524,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                             </>
                           )}
                         </div>
-                        {spinnerKey === `delete-cat:${cat.id}` && <LoadingOverlay size="sm" />}
+                        {rowBusy && <LoadingOverlay size="sm" />}
                       </div>
                     </div>
                   );
