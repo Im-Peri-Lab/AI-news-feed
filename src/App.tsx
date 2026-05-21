@@ -32,7 +32,7 @@ export default function App() {
 
   return (
     <TagsProvider>
-      <div className="min-h-screen bg-[#f9f9fb] dark:bg-[#0d0e12] transition-colors duration-300">
+      <div className="transition-colors duration-300">
         <div className="max-w-6xl mx-auto px-4 md:px-10 py-8 md:py-16 pb-16 md:pb-24">
           <Header onOpenSettings={() => setShowTagManager(true)} />
           <NewsFeed />

@@ -13,13 +13,20 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: #fcfcfd;
+    --background: #f9f9fb;
     --foreground: #1a1a1a;
   }
   .dark {
     color-scheme: dark;
     --background: #0d0e12;
     --foreground: #f0f0f0;
+  }
+  /* Page bg lives on body so the canvas bg fills the viewport naturally when
+     the document is shorter than 100vh — no need for a min-h-screen wrapper
+     that pads the bg out to 100vh and reads as a giant empty slab below the
+     last article. */
+  body {
+    background-color: var(--background);
   }
 }
 
