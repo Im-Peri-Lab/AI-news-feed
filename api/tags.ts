@@ -1,5 +1,5 @@
 import { get } from '@vercel/edge-config';
-import { DEFAULT_TAGS, DEFAULT_CATEGORIES, type TagSpec, type CategoryDef } from '../lib/apiConstants';
+import { DEFAULT_TAGS, DEFAULT_CATEGORIES, type TagSpec, type CategoryDef } from '../lib/apiConstants.js';
 
 function getEdgeConfigId(): string {
   const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
