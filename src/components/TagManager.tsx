@@ -1,7 +1,8 @@
-import { useState, KeyboardEvent } from 'react';
-import { X, Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
+import { useEffect, useState, KeyboardEvent } from 'react';
+import { X, Plus, Pencil, Trash2, Check, GripVertical, Loader2, ChevronDown } from 'lucide-react';
 import { useTags } from '../contexts/TagsContext';
 import { createTag, updateTag, deleteTag, createCategory, updateCategory, deleteCategory, reorderTags, reorderCategories } from '../services/tagService';
+import { CategoryDef } from '../types';
 import { cn } from '../lib/utils';
 
 interface TagManagerProps {
@@ -11,12 +12,63 @@ interface TagManagerProps {
 type Tab = 'tags' | 'categories';
 
 const INPUT_CLS = "px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white outline-none focus:border-brand transition-colors";
+// Shared keyword chip styling so the static chips in the tag list and the
+// removable chips in the add/edit forms read as the same component.
+const KEYWORD_CHIP_CLS = "px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[10px] text-gray-600 dark:text-gray-300";
+// `appearance-none` strips the native arrow (which had near-zero gap to text);
+// `pr-9` reserves space for the custom ChevronDown so text never collides with it.
+const SELECT_CLS = "w-full px-3 py-2 pr-9 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white outline-none focus:border-brand transition-colors appearance-none cursor-pointer truncate";
 const BTN_GHOST = "p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors";
+const DIM_CLS = "opacity-50 pointer-events-none transition-opacity";
+
+// Full-width on mobile (so a long category name can't push the row off-canvas),
+// fixed comfortable width from sm: up.
+function CategorySelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: CategoryDef[] }) {
+  return (
+    <div className="relative w-full sm:w-40 shrink-0">
+      <select value={value} onChange={e => onChange(e.target.value)} className={SELECT_CLS}>
+        {options.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+      </select>
+      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+    </div>
+  );
+}
+
+// Area-scoped loading overlay. Parent must be `relative`; render this as a
+// sibling of the dimmed content so the spinner itself stays at full opacity.
+// The white chip behind the icon keeps the brand-colored spinner legible on
+// the pink-tinted brand-light form backgrounds.
+function LoadingOverlay({ size = 'md' }: { size?: 'sm' | 'md' }) {
+  const iconCls = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
+  const padCls = size === 'sm' ? 'p-1.5' : 'p-2';
+  return (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className={cn(
+        "rounded-full bg-white dark:bg-gray-900 shadow-sm ring-1 ring-gray-200 dark:ring-gray-700",
+        padCls
+      )}>
+        <Loader2 className={cn(iconCls, "text-brand animate-spin")} />
+      </div>
+    </div>
+  );
+}
 
 export default function TagManager({ onClose }: TagManagerProps) {
   const { tags, categories, getCategoryColor, mutateTags, mutateCategories } = useTags();
   const [tab, setTab] = useState<Tab>('tags');
-  const [busy, setBusy] = useState(false);
+  // Keyed pending state: 'add-tag', 'save-tag:{id}', 'delete-tag:{id}', 'add-cat',
+  // 'save-cat:{id}', 'delete-cat:{id}'. Any non-null value disables all mutation
+  // buttons; the matching area (add form / inline edit module / row) dims and
+  // shows a centred spinner after a 150ms delay so fast responses don't flash.
+  const [pending, setPending] = useState<string | null>(null);
+  const [spinnerKey, setSpinnerKey] = useState<string | null>(null);
+  const busy = pending !== null;
+
+  useEffect(() => {
+    if (!pending) { setSpinnerKey(null); return; }
+    const t = setTimeout(() => setSpinnerKey(pending), 150);
+    return () => clearTimeout(t);
+  }, [pending]);
 
   // --- Tag add form ---
   const [showAddForm, setShowAddForm] = useState(false);
@@ -141,9 +193,9 @@ export default function TagManager({ onClose }: TagManagerProps) {
     }
   }
 
-  async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
-    setBusy(true);
-    try { return await fn(); } catch (e: any) { alert(e.message); return undefined; } finally { setBusy(false); }
+  async function run<T>(key: string, fn: () => Promise<T>): Promise<T | undefined> {
+    setPending(key);
+    try { return await fn(); } catch (e: any) { alert(e.message); return undefined; } finally { setPending(null); }
   }
 
   // Tag add
@@ -155,10 +207,10 @@ export default function TagManager({ onClose }: TagManagerProps) {
   function onAddKwKey(e: KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); pushAddKw(); } }
 
   async function handleAddTag() {
-    if (!addName.trim() || !addCategory) return;
-    const created = await run(() => createTag({ name: addName.trim(), category: addCategory, keywords: addKeywords }));
+    if (busy || !addName.trim() || !addCategory) return;
+    const created = await run('add-tag', () => createTag({ name: addName.trim(), category: addCategory, keywords: addKeywords }));
     if (created) {
-      mutateTags(prev => [...prev, created]);
+      mutateTags(prev => prev.some(t => t.id === created.id) ? prev : [...prev, created]);
       setAddName(''); setAddKeywords([]); setAddKwInput(''); setShowAddForm(false);
     }
   }
@@ -177,8 +229,8 @@ export default function TagManager({ onClose }: TagManagerProps) {
   function onEditKwKey(e: KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); pushEditKw(); } }
 
   async function handleSaveTag() {
-    if (!editTagId) return;
-    const updated = await run(() => updateTag(editTagId, { name: editName.trim(), category: editCategory, keywords: editKeywords }));
+    if (busy || !editTagId) return;
+    const updated = await run(`save-tag:${editTagId}`, () => updateTag(editTagId, { name: editName.trim(), category: editCategory, keywords: editKeywords }));
     if (updated) {
       mutateTags(prev => prev.map(t => t.id === editTagId ? updated : t));
       setEditTagId(null);
@@ -186,19 +238,18 @@ export default function TagManager({ onClose }: TagManagerProps) {
   }
 
   async function handleDeleteTag(id: string) {
+    if (busy) return;
     if (!confirm('이 태그를 삭제할까요?')) return;
-    setBusy(true);
-    try { await deleteTag(id); mutateTags(prev => prev.filter(t => t.id !== id)); }
-    catch (e: any) { alert(e.message); }
-    finally { setBusy(false); }
+    const ok = await run(`delete-tag:${id}`, async () => { await deleteTag(id); return true; });
+    if (ok) mutateTags(prev => prev.filter(t => t.id !== id));
   }
 
   // Category add
   async function handleAddCategory() {
-    if (!addCatName.trim()) return;
-    const created = await run(() => createCategory(addCatName.trim()));
+    if (busy || !addCatName.trim()) return;
+    const created = await run('add-cat', () => createCategory(addCatName.trim()));
     if (created) {
-      mutateCategories(prev => [...prev, created]);
+      mutateCategories(prev => prev.some(c => c.id === created.id) ? prev : [...prev, created]);
       setAddCatName(''); setShowAddCatForm(false);
     }
   }
@@ -210,8 +261,8 @@ export default function TagManager({ onClose }: TagManagerProps) {
     setEditCatId(id); setEditCatName(c.name);
   }
   async function handleSaveCat() {
-    if (!editCatId) return;
-    const updated = await run(() => updateCategory(editCatId, editCatName.trim()));
+    if (busy || !editCatId) return;
+    const updated = await run(`save-cat:${editCatId}`, () => updateCategory(editCatId, editCatName.trim()));
     if (updated) {
       mutateCategories(prev => prev.map(c => c.id === editCatId ? updated : c));
       mutateTags(prev => prev.map(t => {
@@ -222,18 +273,14 @@ export default function TagManager({ onClose }: TagManagerProps) {
     }
   }
   async function handleDeleteCat(id: string) {
+    if (busy) return;
     const cat = categories.find(c => c.id === id);
     if (!cat) return;
     if (!confirm(`"${cat.name}" 카테고리를 삭제할까요?\n이 카테고리의 태그는 '미분류'로 이동됩니다.`)) return;
-    setBusy(true);
-    try {
-      await deleteCategory(id);
+    const ok = await run(`delete-cat:${id}`, async () => { await deleteCategory(id); return true; });
+    if (ok) {
       mutateCategories(prev => prev.filter(c => c.id !== id));
       mutateTags(prev => prev.map(t => t.category === cat.name ? { ...t, category: '미분류' } : t));
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -277,39 +324,40 @@ export default function TagManager({ onClose }: TagManagerProps) {
                   <Plus className="w-4 h-4" />태그 추가
                 </button>
               ) : (
-                <div className="border border-brand/25 bg-brand-light/20 dark:bg-gray-800 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-black text-brand uppercase tracking-wider">새 태그 추가</p>
-                    <button
-                      onClick={() => { setShowAddForm(false); setAddName(''); setAddKeywords([]); setAddKwInput(''); }}
-                      className={BTN_GHOST}
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                <div className="relative border border-brand/25 bg-brand-light/20 dark:bg-gray-800 rounded-xl p-4">
+                  <div className={cn("space-y-3", spinnerKey === 'add-tag' && DIM_CLS)}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-black text-brand uppercase tracking-wider">새 태그 추가</p>
+                      <button
+                        onClick={() => { setShowAddForm(false); setAddName(''); setAddKeywords([]); setAddKwInput(''); }}
+                        className={BTN_GHOST}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input value={addName} onChange={e => setAddName(e.target.value)}
+                        placeholder="태그명" className={cn(INPUT_CLS, "flex-1 min-w-0")} autoFocus />
+                      <CategorySelect value={addCategory} onChange={setAddCategory} options={categories} />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
+                      {addKeywords.map(kw => (
+                        <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
+                          {kw}
+                          <button onClick={() => setAddKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
+                        </span>
+                      ))}
+                      <input value={addKwInput} onChange={e => setAddKwInput(e.target.value)} onKeyDown={onAddKwKey} onBlur={pushAddKw}
+                        placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                    </div>
+                    <div className="flex justify-end">
+                      <button onClick={handleAddTag} disabled={busy || !addName.trim()}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
+                        <Plus className="w-4 h-4" />추가
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <input value={addName} onChange={e => setAddName(e.target.value)}
-                      placeholder="태그명" className={cn(INPUT_CLS, "flex-1")} autoFocus />
-                    <select value={addCategory} onChange={e => setAddCategory(e.target.value)} className={INPUT_CLS}>
-                      {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                    {addKeywords.map(kw => (
-                      <span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium text-gray-700 dark:text-gray-200">
-                        {kw}
-                        <button onClick={() => setAddKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
-                      </span>
-                    ))}
-                    <input value={addKwInput} onChange={e => setAddKwInput(e.target.value)} onKeyDown={onAddKwKey} onBlur={pushAddKw}
-                      placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
-                  </div>
-                  <div className="flex justify-end">
-                    <button onClick={handleAddTag} disabled={busy || !addName.trim()}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
-                      <Plus className="w-4 h-4" />추가
-                    </button>
-                  </div>
+                  {spinnerKey === 'add-tag' && <LoadingOverlay />}
                 </div>
               )}
 
@@ -339,28 +387,29 @@ export default function TagManager({ onClose }: TagManagerProps) {
                             </div>
                           )}
                           {editTagId === tag.id ? (
-                            <div className="p-3 rounded-xl border border-brand/30 bg-brand-light/30 dark:bg-gray-800 space-y-2">
-                              <div className="flex gap-2">
-                                <input value={editName} onChange={e => setEditName(e.target.value)}
-                                  placeholder="태그명" className={cn(INPUT_CLS, "flex-1")} />
-                                <select value={editCategory} onChange={e => setEditCategory(e.target.value)} className={INPUT_CLS}>
-                                  {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                </select>
+                            <div className="relative p-3 rounded-xl border border-brand/30 bg-brand-light/30 dark:bg-gray-800">
+                              <div className={cn("space-y-2", spinnerKey === `save-tag:${tag.id}` && DIM_CLS)}>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <input value={editName} onChange={e => setEditName(e.target.value)}
+                                    placeholder="태그명" className={cn(INPUT_CLS, "flex-1 min-w-0")} />
+                                  <CategorySelect value={editCategory} onChange={setEditCategory} options={categories} />
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
+                                  {editKeywords.map(kw => (
+                                    <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
+                                      {kw}
+                                      <button onClick={() => setEditKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
+                                    </span>
+                                  ))}
+                                  <input value={editKwInput} onChange={e => setEditKwInput(e.target.value)} onKeyDown={onEditKwKey} onBlur={pushEditKw}
+                                    placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                                </div>
+                                <div className="flex gap-2 justify-end">
+                                  <button onClick={() => setEditTagId(null)} disabled={busy} className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-50">취소</button>
+                                  <button onClick={handleSaveTag} disabled={busy} className="px-4 py-1.5 text-xs font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50">저장</button>
+                                </div>
                               </div>
-                              <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                                {editKeywords.map(kw => (
-                                  <span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium text-gray-700 dark:text-gray-200">
-                                    {kw}
-                                    <button onClick={() => setEditKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
-                                  </span>
-                                ))}
-                                <input value={editKwInput} onChange={e => setEditKwInput(e.target.value)} onKeyDown={onEditKwKey} onBlur={pushEditKw}
-                                  placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
-                              </div>
-                              <div className="flex gap-2 justify-end">
-                                <button onClick={() => setEditTagId(null)} className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-200">취소</button>
-                                <button onClick={handleSaveTag} disabled={busy} className="px-4 py-1.5 text-xs font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50">저장</button>
-                              </div>
+                              {spinnerKey === `save-tag:${tag.id}` && <LoadingOverlay />}
                             </div>
                           ) : (
                             <div
@@ -369,21 +418,24 @@ export default function TagManager({ onClose }: TagManagerProps) {
                               onDragOver={e => onTagDragOver(e, idx, catName)}
                               onDragEnd={cleanDrag}
                               className={cn(
-                                "flex items-start gap-2 px-2 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
+                                "relative rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
                                 dragId === tag.id && "opacity-50"
                               )}
                             >
-                              <GripVertical className="w-4 h-4 shrink-0 mt-[5px] text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
-                              <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 w-20 truncate leading-5 mt-[3px]">{tag.name}</span>
-                              <div className="flex-1 flex flex-wrap items-center content-start gap-1 min-h-5 mt-[3px]">
-                                {tag.keywords.map(kw => (
-                                  <span key={kw} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-300">{kw}</span>
-                                ))}
+                              <div className={cn("flex items-start gap-2 px-2 py-2.5", spinnerKey === `delete-tag:${tag.id}` && DIM_CLS)}>
+                                <GripVertical className="w-4 h-4 shrink-0 mt-[5px] text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                                <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 min-w-20 max-w-[40%] truncate leading-5 mt-[3px]">{tag.name}</span>
+                                <div className="flex-1 flex flex-wrap items-center content-start gap-1 min-h-5 mt-[3px] ml-1">
+                                  {tag.keywords.map(kw => (
+                                    <span key={kw} className={KEYWORD_CHIP_CLS}>{kw}</span>
+                                  ))}
+                                </div>
+                                <div className="flex gap-1 shrink-0">
+                                  <button onClick={() => startEditTag(tag.id)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")}><Pencil className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => handleDeleteTag(tag.id)} disabled={busy} className={cn(BTN_GHOST, "hover:text-red-500 disabled:opacity-50")}><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
                               </div>
-                              <div className="flex gap-1 shrink-0">
-                                <button onClick={() => startEditTag(tag.id)} className={BTN_GHOST}><Pencil className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => handleDeleteTag(tag.id)} className={cn(BTN_GHOST, "hover:text-red-500")}><Trash2 className="w-3.5 h-3.5" /></button>
-                              </div>
+                              {spinnerKey === `delete-tag:${tag.id}` && <LoadingOverlay size="sm" />}
                             </div>
                           )}
                         </div>
@@ -411,25 +463,28 @@ export default function TagManager({ onClose }: TagManagerProps) {
                   <Plus className="w-4 h-4" />카테고리 추가
                 </button>
               ) : (
-                <div className="border border-brand/25 bg-brand-light/20 dark:bg-gray-800 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-black text-brand uppercase tracking-wider">새 카테고리 추가</p>
-                    <button
-                      onClick={() => { setShowAddCatForm(false); setAddCatName(''); }}
-                      className={BTN_GHOST}
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                <div className="relative border border-brand/25 bg-brand-light/20 dark:bg-gray-800 rounded-xl p-4">
+                  <div className={cn("space-y-3", spinnerKey === 'add-cat' && DIM_CLS)}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-black text-brand uppercase tracking-wider">새 카테고리 추가</p>
+                      <button
+                        onClick={() => { setShowAddCatForm(false); setAddCatName(''); }}
+                        className={BTN_GHOST}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input value={addCatName} onChange={e => setAddCatName(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
+                        placeholder="카테고리명" className={cn(INPUT_CLS, "flex-1")} autoFocus />
+                      <button onClick={handleAddCategory} disabled={busy || !addCatName.trim()}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
+                        <Plus className="w-4 h-4" />추가
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <input value={addCatName} onChange={e => setAddCatName(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
-                      placeholder="카테고리명" className={cn(INPUT_CLS, "flex-1")} autoFocus />
-                    <button onClick={handleAddCategory} disabled={busy || !addCatName.trim()}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
-                      <Plus className="w-4 h-4" />추가
-                    </button>
-                  </div>
+                  {spinnerKey === 'add-cat' && <LoadingOverlay />}
                 </div>
               )}
 
@@ -442,6 +497,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
               >
                 {categories.map((cat, idx) => {
                   const tagCount = tags.filter(t => t.category === cat.name).length;
+                  const rowBusy = spinnerKey === `save-cat:${cat.id}` || spinnerKey === `delete-cat:${cat.id}`;
                   return (
                     <div key={cat.id}>
                       {dragCatInsertIdx === idx && (
@@ -457,31 +513,34 @@ export default function TagManager({ onClose }: TagManagerProps) {
                         onDragOver={e => onCatDragOver(e, idx)}
                         onDragEnd={cleanCatDrag}
                         className={cn(
-                          "flex items-center gap-2 px-2 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
+                          "relative rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
                           dragCatId === cat.id && "opacity-50"
                         )}
                       >
-                        <GripVertical className="w-4 h-4 shrink-0 text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
-                        <span className={cn("px-2 py-0.5 rounded text-[10px] font-black border shrink-0", cat.color.bg, cat.color.text, cat.color.border)}>
-                          {cat.name}
-                        </span>
-                        {editCatId === cat.id ? (
-                          <div className="flex-1 flex items-center gap-2">
-                            <input value={editCatName} onChange={e => setEditCatName(e.target.value)}
-                              onKeyDown={e => e.key === 'Enter' && handleSaveCat()}
-                              className={cn(INPUT_CLS, "flex-1 h-8 text-xs")} autoFocus />
-                            <button onClick={handleSaveCat} disabled={busy} className="p-1.5 text-brand hover:bg-brand/10 rounded-lg"><Check className="w-4 h-4" /></button>
-                            <button onClick={() => setEditCatId(null)} className={BTN_GHOST}><X className="w-4 h-4" /></button>
-                          </div>
-                        ) : (
-                          <>
-                            <span className="flex-1 text-sm text-gray-500 dark:text-gray-400">{tagCount}개 태그</span>
-                            <div className="flex gap-1">
-                              <button onClick={() => startEditCat(cat.id)} className={BTN_GHOST} title="이름 변경"><Pencil className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => handleDeleteCat(cat.id)} className={cn(BTN_GHOST, "hover:text-red-500")} title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <div className={cn("flex items-center gap-2 px-2 py-2.5", rowBusy && DIM_CLS)}>
+                          <GripVertical className="w-4 h-4 shrink-0 text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                          <span className={cn("px-2 py-0.5 rounded text-[10px] font-black border shrink-0", cat.color.bg, cat.color.text, cat.color.border)}>
+                            {cat.name}
+                          </span>
+                          {editCatId === cat.id ? (
+                            <div className="flex-1 flex items-center gap-2">
+                              <input value={editCatName} onChange={e => setEditCatName(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleSaveCat()}
+                                className={cn(INPUT_CLS, "flex-1 h-8 text-xs")} autoFocus />
+                              <button onClick={handleSaveCat} disabled={busy} className="p-1.5 text-brand hover:bg-brand/10 rounded-lg disabled:opacity-50"><Check className="w-4 h-4" /></button>
+                              <button onClick={() => setEditCatId(null)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")}><X className="w-4 h-4" /></button>
                             </div>
-                          </>
-                        )}
+                          ) : (
+                            <>
+                              <span className="flex-1 text-sm text-gray-500 dark:text-gray-400">{tagCount}개 태그</span>
+                              <div className="flex gap-1">
+                                <button onClick={() => startEditCat(cat.id)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")} title="이름 변경"><Pencil className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => handleDeleteCat(cat.id)} disabled={busy} className={cn(BTN_GHOST, "hover:text-red-500 disabled:opacity-50")} title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        {rowBusy && <LoadingOverlay size="sm" />}
                       </div>
                     </div>
                   );

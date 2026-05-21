@@ -1,5 +1,3 @@
-import { get } from '@vercel/edge-config';
-
 interface TagSpec { id: string; name: string; category: string; keywords: string[]; }
 interface CategoryDef { id: string; name: string; color: { bg: string; text: string; border: string }; }
 
@@ -59,12 +57,31 @@ async function updateEdgeConfigKey(key: string, value: unknown): Promise<void> {
   }
 }
 
+// The @vercel/edge-config SDK reads through a CDN cache that lags writes by
+// hundreds of milliseconds. Mutation handlers that look up a freshly-created
+// id must read the authoritative value via the Management API instead.
+async function readEdgeConfigKey<T>(key: string): Promise<T | null> {
+  const edgeConfigId = getEdgeConfigId();
+  const token = process.env.VERCEL_API_TOKEN;
+  if (!edgeConfigId || !token) return null;
+  try {
+    const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/item/${key}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data?.value ?? null) as T | null;
+  } catch {
+    return null;
+  }
+}
+
 async function getTagsFromConfig(): Promise<TagSpec[]> {
-  try { return (await get<TagSpec[]>('tags')) ?? DEFAULT_TAGS; } catch { return DEFAULT_TAGS; }
+  return (await readEdgeConfigKey<TagSpec[]>('tags')) ?? DEFAULT_TAGS;
 }
 
 async function getCategoriesFromConfig(): Promise<CategoryDef[]> {
-  try { return (await get<CategoryDef[]>('categories')) ?? DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; }
+  return (await readEdgeConfigKey<CategoryDef[]>('categories')) ?? DEFAULT_CATEGORIES;
 }
 
 export default async function handler(req: any, res: any) {
