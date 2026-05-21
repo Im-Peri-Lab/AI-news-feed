@@ -32,10 +32,9 @@ interface NewsCardProps {
   article: Article;
   isFirst?: boolean;
   isLast?: boolean;
-  onMenuToggle?: (isOpen: boolean) => void;
 }
 
-export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: NewsCardProps) {
+export default function NewsCard({ article, isFirst, isLast }: NewsCardProps) {
   const { tags, getCategoryColor } = useTags();
   const [showCopyMenu, setShowCopyMenu] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
@@ -45,10 +44,6 @@ export default function NewsCard({ article, isFirst, isLast, onMenuToggle }: New
   const displayTime = format(new Date(article.publishedAt), 'yyyy.MM.dd HH:mm', { locale: ko });
   const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
   const kakaoShareText = `${article.title}\n${article.source} · ${displayTime}`;
-
-  useEffect(() => {
-    onMenuToggle?.(showCopyMenu || showShareMenu);
-  }, [showCopyMenu, showShareMenu, onMenuToggle]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

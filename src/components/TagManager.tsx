@@ -1,4 +1,4 @@
-import React, { useState, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent } from 'react';
 import { X, Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
 import { useTags } from '../contexts/TagsContext';
 import { createTag, updateTag, deleteTag, createCategory, updateCategory, deleteCategory, reorderTags, reorderCategories } from '../services/tagService';

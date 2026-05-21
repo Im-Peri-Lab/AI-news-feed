@@ -18,7 +18,6 @@ export default function NewsFeed() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('');
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const loadNews = async (date: Date) => {
     setIsLoading(true);
@@ -133,11 +132,10 @@ export default function NewsFeed() {
                   transition={{ duration: 0.2 }}
                   className="relative"
                 >
-                  <NewsCard 
-                    article={article} 
+                  <NewsCard
+                    article={article}
                     isFirst={index === 0}
                     isLast={index === filteredArticles.length - 1}
-                    onMenuToggle={(isOpen) => setOpenMenuId(isOpen ? article.id : null)}
                   />
                 </motion.div>
               ))
