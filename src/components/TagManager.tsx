@@ -1,7 +1,8 @@
 import { useEffect, useState, KeyboardEvent } from 'react';
-import { X, Plus, Pencil, Trash2, Check, GripVertical, Loader2 } from 'lucide-react';
+import { X, Plus, Pencil, Trash2, Check, GripVertical, Loader2, ChevronDown } from 'lucide-react';
 import { useTags } from '../contexts/TagsContext';
 import { createTag, updateTag, deleteTag, createCategory, updateCategory, deleteCategory, reorderTags, reorderCategories } from '../services/tagService';
+import { CategoryDef } from '../types';
 import { cn } from '../lib/utils';
 
 interface TagManagerProps {
@@ -11,8 +12,24 @@ interface TagManagerProps {
 type Tab = 'tags' | 'categories';
 
 const INPUT_CLS = "px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white outline-none focus:border-brand transition-colors";
+// `appearance-none` strips the native arrow (which had near-zero gap to text);
+// `pr-9` reserves space for the custom ChevronDown so text never collides with it.
+const SELECT_CLS = "w-full px-3 py-2 pr-9 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white outline-none focus:border-brand transition-colors appearance-none cursor-pointer truncate";
 const BTN_GHOST = "p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors";
 const DIM_CLS = "opacity-50 pointer-events-none transition-opacity";
+
+// Full-width on mobile (so a long category name can't push the row off-canvas),
+// fixed comfortable width from sm: up.
+function CategorySelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: CategoryDef[] }) {
+  return (
+    <div className="relative w-full sm:w-40 shrink-0">
+      <select value={value} onChange={e => onChange(e.target.value)} className={SELECT_CLS}>
+        {options.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+      </select>
+      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+    </div>
+  );
+}
 
 // Area-scoped loading overlay. Parent must be `relative`; render this as a
 // sibling of the dimmed content so the spinner itself stays at full opacity.
@@ -315,12 +332,10 @@ export default function TagManager({ onClose }: TagManagerProps) {
                         <X className="w-4 h-4" />
                       </button>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <input value={addName} onChange={e => setAddName(e.target.value)}
-                        placeholder="태그명" className={cn(INPUT_CLS, "flex-1")} autoFocus />
-                      <select value={addCategory} onChange={e => setAddCategory(e.target.value)} className={INPUT_CLS}>
-                        {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                      </select>
+                        placeholder="태그명" className={cn(INPUT_CLS, "flex-1 min-w-0")} autoFocus />
+                      <CategorySelect value={addCategory} onChange={setAddCategory} options={categories} />
                     </div>
                     <div className="flex flex-wrap gap-1.5 min-h-[28px]">
                       {addKeywords.map(kw => (
@@ -371,12 +386,10 @@ export default function TagManager({ onClose }: TagManagerProps) {
                           {editTagId === tag.id ? (
                             <div className="relative p-3 rounded-xl border border-brand/30 bg-brand-light/30 dark:bg-gray-800">
                               <div className={cn("space-y-2", spinnerKey === `save-tag:${tag.id}` && DIM_CLS)}>
-                                <div className="flex gap-2">
+                                <div className="flex flex-col sm:flex-row gap-2">
                                   <input value={editName} onChange={e => setEditName(e.target.value)}
-                                    placeholder="태그명" className={cn(INPUT_CLS, "flex-1")} />
-                                  <select value={editCategory} onChange={e => setEditCategory(e.target.value)} className={INPUT_CLS}>
-                                    {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                  </select>
+                                    placeholder="태그명" className={cn(INPUT_CLS, "flex-1 min-w-0")} />
+                                  <CategorySelect value={editCategory} onChange={setEditCategory} options={categories} />
                                 </div>
                                 <div className="flex flex-wrap gap-1.5 min-h-[28px]">
                                   {editKeywords.map(kw => (
