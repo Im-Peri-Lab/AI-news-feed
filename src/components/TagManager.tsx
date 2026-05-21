@@ -179,10 +179,10 @@ export default function TagManager({ onClose }: TagManagerProps) {
   function onAddKwKey(e: KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); pushAddKw(); } }
 
   async function handleAddTag() {
-    if (!addName.trim() || !addCategory) return;
+    if (busy || !addName.trim() || !addCategory) return;
     const created = await run('add-tag', () => createTag({ name: addName.trim(), category: addCategory, keywords: addKeywords }));
     if (created) {
-      mutateTags(prev => [...prev, created]);
+      mutateTags(prev => prev.some(t => t.id === created.id) ? prev : [...prev, created]);
       setAddName(''); setAddKeywords([]); setAddKwInput(''); setShowAddForm(false);
     }
   }
@@ -201,7 +201,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
   function onEditKwKey(e: KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); pushEditKw(); } }
 
   async function handleSaveTag() {
-    if (!editTagId) return;
+    if (busy || !editTagId) return;
     const updated = await run(`save-tag:${editTagId}`, () => updateTag(editTagId, { name: editName.trim(), category: editCategory, keywords: editKeywords }));
     if (updated) {
       mutateTags(prev => prev.map(t => t.id === editTagId ? updated : t));
@@ -210,6 +210,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
   }
 
   async function handleDeleteTag(id: string) {
+    if (busy) return;
     if (!confirm('이 태그를 삭제할까요?')) return;
     const ok = await run(`delete-tag:${id}`, async () => { await deleteTag(id); return true; });
     if (ok) mutateTags(prev => prev.filter(t => t.id !== id));
@@ -217,10 +218,10 @@ export default function TagManager({ onClose }: TagManagerProps) {
 
   // Category add
   async function handleAddCategory() {
-    if (!addCatName.trim()) return;
+    if (busy || !addCatName.trim()) return;
     const created = await run('add-cat', () => createCategory(addCatName.trim()));
     if (created) {
-      mutateCategories(prev => [...prev, created]);
+      mutateCategories(prev => prev.some(c => c.id === created.id) ? prev : [...prev, created]);
       setAddCatName(''); setShowAddCatForm(false);
     }
   }
@@ -232,7 +233,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
     setEditCatId(id); setEditCatName(c.name);
   }
   async function handleSaveCat() {
-    if (!editCatId) return;
+    if (busy || !editCatId) return;
     const updated = await run(`save-cat:${editCatId}`, () => updateCategory(editCatId, editCatName.trim()));
     if (updated) {
       mutateCategories(prev => prev.map(c => c.id === editCatId ? updated : c));
@@ -244,6 +245,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
     }
   }
   async function handleDeleteCat(id: string) {
+    if (busy) return;
     const cat = categories.find(c => c.id === id);
     if (!cat) return;
     if (!confirm(`"${cat.name}" 카테고리를 삭제할까요?\n이 카테고리의 태그는 '미분류'로 이동됩니다.`)) return;
