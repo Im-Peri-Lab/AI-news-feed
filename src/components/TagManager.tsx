@@ -1,5 +1,5 @@
-import { useState, KeyboardEvent } from 'react';
-import { X, Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
+import { useEffect, useState, KeyboardEvent } from 'react';
+import { X, Plus, Pencil, Trash2, Check, GripVertical, Loader2 } from 'lucide-react';
 import { useTags } from '../contexts/TagsContext';
 import { createTag, updateTag, deleteTag, createCategory, updateCategory, deleteCategory, reorderTags, reorderCategories } from '../services/tagService';
 import { cn } from '../lib/utils';
@@ -16,7 +16,19 @@ const BTN_GHOST = "p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover
 export default function TagManager({ onClose }: TagManagerProps) {
   const { tags, categories, getCategoryColor, mutateTags, mutateCategories } = useTags();
   const [tab, setTab] = useState<Tab>('tags');
-  const [busy, setBusy] = useState(false);
+  // Keyed pending state: 'add-tag', 'save-tag:{id}', 'delete-tag:{id}', 'add-cat',
+  // 'save-cat:{id}', 'delete-cat:{id}'. Any non-null value disables all mutation
+  // buttons; spinner appears only on the matching button after a 150ms delay so
+  // fast responses don't flash.
+  const [pending, setPending] = useState<string | null>(null);
+  const [spinnerKey, setSpinnerKey] = useState<string | null>(null);
+  const busy = pending !== null;
+
+  useEffect(() => {
+    if (!pending) { setSpinnerKey(null); return; }
+    const t = setTimeout(() => setSpinnerKey(pending), 150);
+    return () => clearTimeout(t);
+  }, [pending]);
 
   // --- Tag add form ---
   const [showAddForm, setShowAddForm] = useState(false);
@@ -141,9 +153,9 @@ export default function TagManager({ onClose }: TagManagerProps) {
     }
   }
 
-  async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
-    setBusy(true);
-    try { return await fn(); } catch (e: any) { alert(e.message); return undefined; } finally { setBusy(false); }
+  async function run<T>(key: string, fn: () => Promise<T>): Promise<T | undefined> {
+    setPending(key);
+    try { return await fn(); } catch (e: any) { alert(e.message); return undefined; } finally { setPending(null); }
   }
 
   // Tag add
@@ -156,7 +168,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
 
   async function handleAddTag() {
     if (!addName.trim() || !addCategory) return;
-    const created = await run(() => createTag({ name: addName.trim(), category: addCategory, keywords: addKeywords }));
+    const created = await run('add-tag', () => createTag({ name: addName.trim(), category: addCategory, keywords: addKeywords }));
     if (created) {
       mutateTags(prev => [...prev, created]);
       setAddName(''); setAddKeywords([]); setAddKwInput(''); setShowAddForm(false);
@@ -178,7 +190,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
 
   async function handleSaveTag() {
     if (!editTagId) return;
-    const updated = await run(() => updateTag(editTagId, { name: editName.trim(), category: editCategory, keywords: editKeywords }));
+    const updated = await run(`save-tag:${editTagId}`, () => updateTag(editTagId, { name: editName.trim(), category: editCategory, keywords: editKeywords }));
     if (updated) {
       mutateTags(prev => prev.map(t => t.id === editTagId ? updated : t));
       setEditTagId(null);
@@ -187,16 +199,14 @@ export default function TagManager({ onClose }: TagManagerProps) {
 
   async function handleDeleteTag(id: string) {
     if (!confirm('이 태그를 삭제할까요?')) return;
-    setBusy(true);
-    try { await deleteTag(id); mutateTags(prev => prev.filter(t => t.id !== id)); }
-    catch (e: any) { alert(e.message); }
-    finally { setBusy(false); }
+    const ok = await run(`delete-tag:${id}`, async () => { await deleteTag(id); return true; });
+    if (ok) mutateTags(prev => prev.filter(t => t.id !== id));
   }
 
   // Category add
   async function handleAddCategory() {
     if (!addCatName.trim()) return;
-    const created = await run(() => createCategory(addCatName.trim()));
+    const created = await run('add-cat', () => createCategory(addCatName.trim()));
     if (created) {
       mutateCategories(prev => [...prev, created]);
       setAddCatName(''); setShowAddCatForm(false);
@@ -211,7 +221,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
   }
   async function handleSaveCat() {
     if (!editCatId) return;
-    const updated = await run(() => updateCategory(editCatId, editCatName.trim()));
+    const updated = await run(`save-cat:${editCatId}`, () => updateCategory(editCatId, editCatName.trim()));
     if (updated) {
       mutateCategories(prev => prev.map(c => c.id === editCatId ? updated : c));
       mutateTags(prev => prev.map(t => {
@@ -225,15 +235,10 @@ export default function TagManager({ onClose }: TagManagerProps) {
     const cat = categories.find(c => c.id === id);
     if (!cat) return;
     if (!confirm(`"${cat.name}" 카테고리를 삭제할까요?\n이 카테고리의 태그는 '미분류'로 이동됩니다.`)) return;
-    setBusy(true);
-    try {
-      await deleteCategory(id);
+    const ok = await run(`delete-cat:${id}`, async () => { await deleteCategory(id); return true; });
+    if (ok) {
       mutateCategories(prev => prev.filter(c => c.id !== id));
       mutateTags(prev => prev.map(t => t.category === cat.name ? { ...t, category: '미분류' } : t));
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -307,7 +312,10 @@ export default function TagManager({ onClose }: TagManagerProps) {
                   <div className="flex justify-end">
                     <button onClick={handleAddTag} disabled={busy || !addName.trim()}
                       className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
-                      <Plus className="w-4 h-4" />추가
+                      {spinnerKey === 'add-tag'
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Plus className="w-4 h-4" />}
+                      추가
                     </button>
                   </div>
                 </div>
@@ -358,8 +366,11 @@ export default function TagManager({ onClose }: TagManagerProps) {
                                   placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
                               </div>
                               <div className="flex gap-2 justify-end">
-                                <button onClick={() => setEditTagId(null)} className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-200">취소</button>
-                                <button onClick={handleSaveTag} disabled={busy} className="px-4 py-1.5 text-xs font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50">저장</button>
+                                <button onClick={() => setEditTagId(null)} disabled={busy} className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-50">취소</button>
+                                <button onClick={handleSaveTag} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50">
+                                  {spinnerKey === `save-tag:${tag.id}` && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                  저장
+                                </button>
                               </div>
                             </div>
                           ) : (
@@ -381,8 +392,12 @@ export default function TagManager({ onClose }: TagManagerProps) {
                                 ))}
                               </div>
                               <div className="flex gap-1 shrink-0">
-                                <button onClick={() => startEditTag(tag.id)} className={BTN_GHOST}><Pencil className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => handleDeleteTag(tag.id)} className={cn(BTN_GHOST, "hover:text-red-500")}><Trash2 className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => startEditTag(tag.id)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")}><Pencil className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => handleDeleteTag(tag.id)} disabled={busy} className={cn(BTN_GHOST, "hover:text-red-500 disabled:opacity-50")}>
+                                  {spinnerKey === `delete-tag:${tag.id}`
+                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin text-brand" />
+                                    : <Trash2 className="w-3.5 h-3.5" />}
+                                </button>
                               </div>
                             </div>
                           )}
@@ -427,7 +442,10 @@ export default function TagManager({ onClose }: TagManagerProps) {
                       placeholder="카테고리명" className={cn(INPUT_CLS, "flex-1")} autoFocus />
                     <button onClick={handleAddCategory} disabled={busy || !addCatName.trim()}
                       className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
-                      <Plus className="w-4 h-4" />추가
+                      {spinnerKey === 'add-cat'
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Plus className="w-4 h-4" />}
+                      추가
                     </button>
                   </div>
                 </div>
@@ -470,15 +488,23 @@ export default function TagManager({ onClose }: TagManagerProps) {
                             <input value={editCatName} onChange={e => setEditCatName(e.target.value)}
                               onKeyDown={e => e.key === 'Enter' && handleSaveCat()}
                               className={cn(INPUT_CLS, "flex-1 h-8 text-xs")} autoFocus />
-                            <button onClick={handleSaveCat} disabled={busy} className="p-1.5 text-brand hover:bg-brand/10 rounded-lg"><Check className="w-4 h-4" /></button>
-                            <button onClick={() => setEditCatId(null)} className={BTN_GHOST}><X className="w-4 h-4" /></button>
+                            <button onClick={handleSaveCat} disabled={busy} className="p-1.5 text-brand hover:bg-brand/10 rounded-lg disabled:opacity-50">
+                              {spinnerKey === `save-cat:${cat.id}`
+                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                : <Check className="w-4 h-4" />}
+                            </button>
+                            <button onClick={() => setEditCatId(null)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")}><X className="w-4 h-4" /></button>
                           </div>
                         ) : (
                           <>
                             <span className="flex-1 text-sm text-gray-500 dark:text-gray-400">{tagCount}개 태그</span>
                             <div className="flex gap-1">
-                              <button onClick={() => startEditCat(cat.id)} className={BTN_GHOST} title="이름 변경"><Pencil className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => handleDeleteCat(cat.id)} className={cn(BTN_GHOST, "hover:text-red-500")} title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => startEditCat(cat.id)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")} title="이름 변경"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => handleDeleteCat(cat.id)} disabled={busy} className={cn(BTN_GHOST, "hover:text-red-500 disabled:opacity-50")} title="삭제">
+                                {spinnerKey === `delete-cat:${cat.id}`
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin text-brand" />
+                                  : <Trash2 className="w-3.5 h-3.5" />}
+                              </button>
                             </div>
                           </>
                         )}
