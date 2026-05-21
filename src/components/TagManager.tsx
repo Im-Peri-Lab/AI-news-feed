@@ -12,14 +12,26 @@ type Tab = 'tags' | 'categories';
 
 const INPUT_CLS = "px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white outline-none focus:border-brand transition-colors";
 const BTN_GHOST = "p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors";
+const DIM_CLS = "opacity-50 pointer-events-none transition-opacity";
+
+// Area-scoped loading overlay. Parent must be `relative`; render this as a
+// sibling of the dimmed content so the spinner itself stays at full opacity.
+function LoadingOverlay({ size = 'md' }: { size?: 'sm' | 'md' }) {
+  const iconCls = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
+  return (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <Loader2 className={cn(iconCls, "text-brand animate-spin")} />
+    </div>
+  );
+}
 
 export default function TagManager({ onClose }: TagManagerProps) {
   const { tags, categories, getCategoryColor, mutateTags, mutateCategories } = useTags();
   const [tab, setTab] = useState<Tab>('tags');
   // Keyed pending state: 'add-tag', 'save-tag:{id}', 'delete-tag:{id}', 'add-cat',
   // 'save-cat:{id}', 'delete-cat:{id}'. Any non-null value disables all mutation
-  // buttons; spinner appears only on the matching button after a 150ms delay so
-  // fast responses don't flash.
+  // buttons; the matching area (add form / inline edit module / row) dims and
+  // shows a centred spinner after a 150ms delay so fast responses don't flash.
   const [pending, setPending] = useState<string | null>(null);
   const [spinnerKey, setSpinnerKey] = useState<string | null>(null);
   const busy = pending !== null;
@@ -282,42 +294,42 @@ export default function TagManager({ onClose }: TagManagerProps) {
                   <Plus className="w-4 h-4" />태그 추가
                 </button>
               ) : (
-                <div className="border border-brand/25 bg-brand-light/20 dark:bg-gray-800 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-black text-brand uppercase tracking-wider">새 태그 추가</p>
-                    <button
-                      onClick={() => { setShowAddForm(false); setAddName(''); setAddKeywords([]); setAddKwInput(''); }}
-                      className={BTN_GHOST}
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                <div className="relative border border-brand/25 bg-brand-light/20 dark:bg-gray-800 rounded-xl p-4">
+                  <div className={cn("space-y-3", spinnerKey === 'add-tag' && DIM_CLS)}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-black text-brand uppercase tracking-wider">새 태그 추가</p>
+                      <button
+                        onClick={() => { setShowAddForm(false); setAddName(''); setAddKeywords([]); setAddKwInput(''); }}
+                        className={BTN_GHOST}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input value={addName} onChange={e => setAddName(e.target.value)}
+                        placeholder="태그명" className={cn(INPUT_CLS, "flex-1")} autoFocus />
+                      <select value={addCategory} onChange={e => setAddCategory(e.target.value)} className={INPUT_CLS}>
+                        {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                      {addKeywords.map(kw => (
+                        <span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium text-gray-700 dark:text-gray-200">
+                          {kw}
+                          <button onClick={() => setAddKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
+                        </span>
+                      ))}
+                      <input value={addKwInput} onChange={e => setAddKwInput(e.target.value)} onKeyDown={onAddKwKey} onBlur={pushAddKw}
+                        placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                    </div>
+                    <div className="flex justify-end">
+                      <button onClick={handleAddTag} disabled={busy || !addName.trim()}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
+                        <Plus className="w-4 h-4" />추가
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <input value={addName} onChange={e => setAddName(e.target.value)}
-                      placeholder="태그명" className={cn(INPUT_CLS, "flex-1")} autoFocus />
-                    <select value={addCategory} onChange={e => setAddCategory(e.target.value)} className={INPUT_CLS}>
-                      {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                    {addKeywords.map(kw => (
-                      <span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium text-gray-700 dark:text-gray-200">
-                        {kw}
-                        <button onClick={() => setAddKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
-                      </span>
-                    ))}
-                    <input value={addKwInput} onChange={e => setAddKwInput(e.target.value)} onKeyDown={onAddKwKey} onBlur={pushAddKw}
-                      placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
-                  </div>
-                  <div className="flex justify-end">
-                    <button onClick={handleAddTag} disabled={busy || !addName.trim()}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
-                      {spinnerKey === 'add-tag'
-                        ? <Loader2 className="w-4 h-4 animate-spin" />
-                        : <Plus className="w-4 h-4" />}
-                      추가
-                    </button>
-                  </div>
+                  {spinnerKey === 'add-tag' && <LoadingOverlay />}
                 </div>
               )}
 
@@ -347,31 +359,31 @@ export default function TagManager({ onClose }: TagManagerProps) {
                             </div>
                           )}
                           {editTagId === tag.id ? (
-                            <div className="p-3 rounded-xl border border-brand/30 bg-brand-light/30 dark:bg-gray-800 space-y-2">
-                              <div className="flex gap-2">
-                                <input value={editName} onChange={e => setEditName(e.target.value)}
-                                  placeholder="태그명" className={cn(INPUT_CLS, "flex-1")} />
-                                <select value={editCategory} onChange={e => setEditCategory(e.target.value)} className={INPUT_CLS}>
-                                  {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                </select>
+                            <div className="relative p-3 rounded-xl border border-brand/30 bg-brand-light/30 dark:bg-gray-800">
+                              <div className={cn("space-y-2", spinnerKey === `save-tag:${tag.id}` && DIM_CLS)}>
+                                <div className="flex gap-2">
+                                  <input value={editName} onChange={e => setEditName(e.target.value)}
+                                    placeholder="태그명" className={cn(INPUT_CLS, "flex-1")} />
+                                  <select value={editCategory} onChange={e => setEditCategory(e.target.value)} className={INPUT_CLS}>
+                                    {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                  </select>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                                  {editKeywords.map(kw => (
+                                    <span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium text-gray-700 dark:text-gray-200">
+                                      {kw}
+                                      <button onClick={() => setEditKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
+                                    </span>
+                                  ))}
+                                  <input value={editKwInput} onChange={e => setEditKwInput(e.target.value)} onKeyDown={onEditKwKey} onBlur={pushEditKw}
+                                    placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                                </div>
+                                <div className="flex gap-2 justify-end">
+                                  <button onClick={() => setEditTagId(null)} disabled={busy} className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-50">취소</button>
+                                  <button onClick={handleSaveTag} disabled={busy} className="px-4 py-1.5 text-xs font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50">저장</button>
+                                </div>
                               </div>
-                              <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                                {editKeywords.map(kw => (
-                                  <span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium text-gray-700 dark:text-gray-200">
-                                    {kw}
-                                    <button onClick={() => setEditKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
-                                  </span>
-                                ))}
-                                <input value={editKwInput} onChange={e => setEditKwInput(e.target.value)} onKeyDown={onEditKwKey} onBlur={pushEditKw}
-                                  placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
-                              </div>
-                              <div className="flex gap-2 justify-end">
-                                <button onClick={() => setEditTagId(null)} disabled={busy} className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-50">취소</button>
-                                <button onClick={handleSaveTag} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50">
-                                  {spinnerKey === `save-tag:${tag.id}` && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                  저장
-                                </button>
-                              </div>
+                              {spinnerKey === `save-tag:${tag.id}` && <LoadingOverlay />}
                             </div>
                           ) : (
                             <div
@@ -380,25 +392,24 @@ export default function TagManager({ onClose }: TagManagerProps) {
                               onDragOver={e => onTagDragOver(e, idx, catName)}
                               onDragEnd={cleanDrag}
                               className={cn(
-                                "flex items-start gap-2 px-2 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
+                                "relative rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
                                 dragId === tag.id && "opacity-50"
                               )}
                             >
-                              <GripVertical className="w-4 h-4 shrink-0 mt-[5px] text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
-                              <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 w-20 truncate leading-5 mt-[3px]">{tag.name}</span>
-                              <div className="flex-1 flex flex-wrap items-center content-start gap-1 min-h-5 mt-[3px]">
-                                {tag.keywords.map(kw => (
-                                  <span key={kw} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-300">{kw}</span>
-                                ))}
+                              <div className={cn("flex items-start gap-2 px-2 py-2.5", spinnerKey === `delete-tag:${tag.id}` && DIM_CLS)}>
+                                <GripVertical className="w-4 h-4 shrink-0 mt-[5px] text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                                <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 w-20 truncate leading-5 mt-[3px]">{tag.name}</span>
+                                <div className="flex-1 flex flex-wrap items-center content-start gap-1 min-h-5 mt-[3px]">
+                                  {tag.keywords.map(kw => (
+                                    <span key={kw} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-300">{kw}</span>
+                                  ))}
+                                </div>
+                                <div className="flex gap-1 shrink-0">
+                                  <button onClick={() => startEditTag(tag.id)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")}><Pencil className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => handleDeleteTag(tag.id)} disabled={busy} className={cn(BTN_GHOST, "hover:text-red-500 disabled:opacity-50")}><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
                               </div>
-                              <div className="flex gap-1 shrink-0">
-                                <button onClick={() => startEditTag(tag.id)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")}><Pencil className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => handleDeleteTag(tag.id)} disabled={busy} className={cn(BTN_GHOST, "hover:text-red-500 disabled:opacity-50")}>
-                                  {spinnerKey === `delete-tag:${tag.id}`
-                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin text-brand" />
-                                    : <Trash2 className="w-3.5 h-3.5" />}
-                                </button>
-                              </div>
+                              {spinnerKey === `delete-tag:${tag.id}` && <LoadingOverlay size="sm" />}
                             </div>
                           )}
                         </div>
@@ -426,28 +437,28 @@ export default function TagManager({ onClose }: TagManagerProps) {
                   <Plus className="w-4 h-4" />카테고리 추가
                 </button>
               ) : (
-                <div className="border border-brand/25 bg-brand-light/20 dark:bg-gray-800 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-black text-brand uppercase tracking-wider">새 카테고리 추가</p>
-                    <button
-                      onClick={() => { setShowAddCatForm(false); setAddCatName(''); }}
-                      className={BTN_GHOST}
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                <div className="relative border border-brand/25 bg-brand-light/20 dark:bg-gray-800 rounded-xl p-4">
+                  <div className={cn("space-y-3", spinnerKey === 'add-cat' && DIM_CLS)}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-black text-brand uppercase tracking-wider">새 카테고리 추가</p>
+                      <button
+                        onClick={() => { setShowAddCatForm(false); setAddCatName(''); }}
+                        className={BTN_GHOST}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input value={addCatName} onChange={e => setAddCatName(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
+                        placeholder="카테고리명" className={cn(INPUT_CLS, "flex-1")} autoFocus />
+                      <button onClick={handleAddCategory} disabled={busy || !addCatName.trim()}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
+                        <Plus className="w-4 h-4" />추가
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <input value={addCatName} onChange={e => setAddCatName(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
-                      placeholder="카테고리명" className={cn(INPUT_CLS, "flex-1")} autoFocus />
-                    <button onClick={handleAddCategory} disabled={busy || !addCatName.trim()}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-50 transition-colors">
-                      {spinnerKey === 'add-cat'
-                        ? <Loader2 className="w-4 h-4 animate-spin" />
-                        : <Plus className="w-4 h-4" />}
-                      추가
-                    </button>
-                  </div>
+                  {spinnerKey === 'add-cat' && <LoadingOverlay />}
                 </div>
               )}
 
@@ -475,39 +486,37 @@ export default function TagManager({ onClose }: TagManagerProps) {
                         onDragOver={e => onCatDragOver(e, idx)}
                         onDragEnd={cleanCatDrag}
                         className={cn(
-                          "flex items-center gap-2 px-2 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
+                          "relative rounded-xl border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 group transition-opacity",
                           dragCatId === cat.id && "opacity-50"
                         )}
                       >
-                        <GripVertical className="w-4 h-4 shrink-0 text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
-                        <span className={cn("px-2 py-0.5 rounded text-[10px] font-black border shrink-0", cat.color.bg, cat.color.text, cat.color.border)}>
-                          {cat.name}
-                        </span>
-                        {editCatId === cat.id ? (
-                          <div className="flex-1 flex items-center gap-2">
-                            <input value={editCatName} onChange={e => setEditCatName(e.target.value)}
-                              onKeyDown={e => e.key === 'Enter' && handleSaveCat()}
-                              className={cn(INPUT_CLS, "flex-1 h-8 text-xs")} autoFocus />
-                            <button onClick={handleSaveCat} disabled={busy} className="p-1.5 text-brand hover:bg-brand/10 rounded-lg disabled:opacity-50">
-                              {spinnerKey === `save-cat:${cat.id}`
-                                ? <Loader2 className="w-4 h-4 animate-spin" />
-                                : <Check className="w-4 h-4" />}
-                            </button>
-                            <button onClick={() => setEditCatId(null)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")}><X className="w-4 h-4" /></button>
-                          </div>
-                        ) : (
-                          <>
-                            <span className="flex-1 text-sm text-gray-500 dark:text-gray-400">{tagCount}개 태그</span>
-                            <div className="flex gap-1">
-                              <button onClick={() => startEditCat(cat.id)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")} title="이름 변경"><Pencil className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => handleDeleteCat(cat.id)} disabled={busy} className={cn(BTN_GHOST, "hover:text-red-500 disabled:opacity-50")} title="삭제">
-                                {spinnerKey === `delete-cat:${cat.id}`
-                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin text-brand" />
-                                  : <Trash2 className="w-3.5 h-3.5" />}
-                              </button>
+                        <div className={cn("flex items-center gap-2 px-2 py-2.5", spinnerKey === `delete-cat:${cat.id}` && DIM_CLS)}>
+                          <GripVertical className="w-4 h-4 shrink-0 text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                          <span className={cn("px-2 py-0.5 rounded text-[10px] font-black border shrink-0", cat.color.bg, cat.color.text, cat.color.border)}>
+                            {cat.name}
+                          </span>
+                          {editCatId === cat.id ? (
+                            <div className="relative flex-1">
+                              <div className={cn("flex items-center gap-2", spinnerKey === `save-cat:${cat.id}` && DIM_CLS)}>
+                                <input value={editCatName} onChange={e => setEditCatName(e.target.value)}
+                                  onKeyDown={e => e.key === 'Enter' && handleSaveCat()}
+                                  className={cn(INPUT_CLS, "flex-1 h-8 text-xs")} autoFocus />
+                                <button onClick={handleSaveCat} disabled={busy} className="p-1.5 text-brand hover:bg-brand/10 rounded-lg disabled:opacity-50"><Check className="w-4 h-4" /></button>
+                                <button onClick={() => setEditCatId(null)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")}><X className="w-4 h-4" /></button>
+                              </div>
+                              {spinnerKey === `save-cat:${cat.id}` && <LoadingOverlay size="sm" />}
                             </div>
-                          </>
-                        )}
+                          ) : (
+                            <>
+                              <span className="flex-1 text-sm text-gray-500 dark:text-gray-400">{tagCount}개 태그</span>
+                              <div className="flex gap-1">
+                                <button onClick={() => startEditCat(cat.id)} disabled={busy} className={cn(BTN_GHOST, "disabled:opacity-50")} title="이름 변경"><Pencil className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => handleDeleteCat(cat.id)} disabled={busy} className={cn(BTN_GHOST, "hover:text-red-500 disabled:opacity-50")} title="삭제"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        {spinnerKey === `delete-cat:${cat.id}` && <LoadingOverlay size="sm" />}
                       </div>
                     </div>
                   );
