@@ -12,6 +12,9 @@ interface TagManagerProps {
 type Tab = 'tags' | 'categories';
 
 const INPUT_CLS = "px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white outline-none focus:border-brand transition-colors";
+// Shared keyword chip styling so the static chips in the tag list and the
+// removable chips in the add/edit forms read as the same component.
+const KEYWORD_CHIP_CLS = "px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[10px] text-gray-600 dark:text-gray-300";
 // `appearance-none` strips the native arrow (which had near-zero gap to text);
 // `pr-9` reserves space for the custom ChevronDown so text never collides with it.
 const SELECT_CLS = "w-full px-3 py-2 pr-9 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white outline-none focus:border-brand transition-colors appearance-none cursor-pointer truncate";
@@ -339,7 +342,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                     </div>
                     <div className="flex flex-wrap gap-1.5 min-h-[28px]">
                       {addKeywords.map(kw => (
-                        <span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium text-gray-700 dark:text-gray-200">
+                        <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
                           {kw}
                           <button onClick={() => setAddKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
                         </span>
@@ -393,7 +396,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                                 </div>
                                 <div className="flex flex-wrap gap-1.5 min-h-[28px]">
                                   {editKeywords.map(kw => (
-                                    <span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-medium text-gray-700 dark:text-gray-200">
+                                    <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
                                       {kw}
                                       <button onClick={() => setEditKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
                                     </span>
@@ -424,7 +427,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                                 <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 w-20 truncate leading-5 mt-[3px]">{tag.name}</span>
                                 <div className="flex-1 flex flex-wrap items-center content-start gap-1 min-h-5 mt-[3px]">
                                   {tag.keywords.map(kw => (
-                                    <span key={kw} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] text-gray-600 dark:text-gray-300">{kw}</span>
+                                    <span key={kw} className={KEYWORD_CHIP_CLS}>{kw}</span>
                                   ))}
                                 </div>
                                 <div className="flex gap-1 shrink-0">
