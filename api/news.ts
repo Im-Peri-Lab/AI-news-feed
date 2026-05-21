@@ -1,7 +1,7 @@
 import Parser from 'rss-parser';
 import crypto from 'crypto';
 import { get } from '@vercel/edge-config';
-import { DEFAULT_TAGS, type TagSpec } from './_constants';
+import { DEFAULT_TAGS, type TagSpec } from '../lib/apiConstants';
 
 async function getTagsFromConfig(): Promise<TagSpec[]> {
   try {

@@ -1,6 +1,6 @@
 import Parser from 'rss-parser';
 import crypto from 'crypto';
-import { DEFAULT_TAGS as TAGS } from './_constants';
+import { DEFAULT_TAGS as TAGS } from '../lib/apiConstants';
 
 const SEARCH_QUERIES = [
   '(AI OR 인공지능 OR "생성형 AI") when:7d',
