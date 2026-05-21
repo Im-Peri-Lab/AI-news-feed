@@ -340,7 +340,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                         placeholder="태그명" className={cn(INPUT_CLS, "flex-1 min-w-0")} autoFocus />
                       <CategorySelect value={addCategory} onChange={setAddCategory} options={categories} />
                     </div>
-                    <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                    <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
                       {addKeywords.map(kw => (
                         <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
                           {kw}
@@ -394,7 +394,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                                     placeholder="태그명" className={cn(INPUT_CLS, "flex-1 min-w-0")} />
                                   <CategorySelect value={editCategory} onChange={setEditCategory} options={categories} />
                                 </div>
-                                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                                <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
                                   {editKeywords.map(kw => (
                                     <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
                                       {kw}
