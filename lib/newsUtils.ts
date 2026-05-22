@@ -52,6 +52,16 @@ export function isExactMatch(title: string, keyword: string): boolean {
   return regex.test(title);
 }
 
+export function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'");
+}
+
 export function normalizeTitle(title: string): string {
   return title
     .replace(/<[^>]+>/g, '')
@@ -227,7 +237,7 @@ export async function fetchNaverNews(query: string, targetDateStr: string): Prom
 }
 
 export function processNaverItem(item: NaverNewsItem, tagSpecs: TagSpec[]) {
-  const rawTitle = item.title.replace(/<[^>]+>/g, '').trim();
+  const rawTitle = decodeHtmlEntities(item.title.replace(/<[^>]+>/g, '').trim());
   const url = item.link || item.originallink || '';
   const source = extractDomain(item.originallink || item.link || '');
   const pubDate = new Date(item.pubDate);
