@@ -7,6 +7,7 @@ import {
   fetchNaverNews,
   processNaverItem,
   makeDeduper,
+  NAVER_QUERIES,
   type NaverNewsItem,
 } from '../lib/newsUtils.js';
 
@@ -41,8 +42,8 @@ async function fetchAllNews(): Promise<{ articles: any[]; stats: FetchStats }> {
     getTags(),
     Promise.allSettled(searchQueries.map(q => fetchWithRetry(q))),
     Promise.allSettled([
-      fetchNaverNews('AI 인공지능', dateStr),
-      fetchNaverNews('생성형AI LLM', dateStr),
+      fetchNaverNews(NAVER_QUERIES[0], dateStr),
+      fetchNaverNews(NAVER_QUERIES[1], dateStr),
     ]),
   ]);
 
