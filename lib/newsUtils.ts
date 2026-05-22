@@ -194,23 +194,6 @@ export async function fetchWithRetry(query: string, retries = 2, backoff = 2000)
 
 // ── Naver News API ────────────────────────────────────────────────────────────
 
-export const NAVER_QUERIES = [
-  'AI OR 인공지능',
-  '생성형AI OR LLM OR AI 에이전트 OR AI 반도체 OR AI 스타트업 OR 데이터센터 OR 피지컬 AI OR AI 보안 OR AI 허브',
-];
-
-const NAVER_TITLE_KEYWORDS = [
-  'AI', '인공지능', 'LLM', 'GPT', '생성형', '에이전틱', '에이전트',
-  '딥러닝', '머신러닝', 'AX', '엔비디아', '딥테크', '구글', '앤트로픽',
-  '오픈AI', '마이크로소프트', 'MS', 'AWS', '클로드', 'claude', '제미나이',
-  'gemini', '엑사원', 'exaone', '반도체',
-];
-
-export function isNaverTitleRelevant(title: string): boolean {
-  const lower = title.toLowerCase();
-  return NAVER_TITLE_KEYWORDS.some(kw => lower.includes(kw.toLowerCase()));
-}
-
 export interface NaverNewsItem {
   title: string;
   link: string;
@@ -245,9 +228,7 @@ export async function fetchNaverNews(query: string, targetDateStr: string): Prom
     const data = await response.json() as NaverNewsResponse;
     return (data.items ?? []).filter(item => {
       const pubDate = new Date(item.pubDate);
-      if (Number.isNaN(pubDate.getTime()) || getKstDateStr(pubDate) !== targetDateStr) return false;
-      const title = decodeHtmlEntities(item.title.replace(/<[^>]+>/g, '').trim());
-      return isNaverTitleRelevant(title);
+      return !Number.isNaN(pubDate.getTime()) && getKstDateStr(pubDate) === targetDateStr;
     });
   } catch (e: any) {
     console.error(`Naver fetch error for "${query}":`, e.message || e);

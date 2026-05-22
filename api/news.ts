@@ -7,7 +7,6 @@ import {
   fetchNaverNews,
   processNaverItem,
   makeDeduper,
-  NAVER_QUERIES,
   type NaverNewsItem,
 } from '../lib/newsUtils.js';
 
@@ -39,8 +38,8 @@ export default async function handler(req: any, res: any) {
       // Naver sort=date only returns recent 100 items — only useful for today
       isToday
         ? Promise.allSettled([
-            fetchNaverNews(NAVER_QUERIES[0], targetDate),
-            fetchNaverNews(NAVER_QUERIES[1], targetDate),
+            fetchNaverNews('AI 인공지능', targetDate),
+            fetchNaverNews('생성형AI LLM', targetDate),
           ])
         : Promise.resolve([]),
     ]);
