@@ -33,14 +33,9 @@ const parser = new Parser({
 // Google RSS after/before are interpreted as UTC boundaries, so KST 00:00–08:59
 // would fall outside after:dateStr. Widen the window by one day on each side and
 // filter to KST dateStr after parsing.
-const BASE_QUERIES_TODAY = [
+const BASE_QUERIES = [
   '(AI OR 인공지능)',
   '(생성형 AI OR LLM OR AI 에이전트 OR AI 반도체)',
-];
-
-const BASE_QUERIES_PAST = [
-  '(AI OR 인공지능 OR "생성형 AI")',
-  '(LLM OR "AI 에이전트" OR "AI 반도체" OR AX)',
 ];
 
 const USER_AGENTS = [
@@ -65,12 +60,6 @@ function getKstOffsetDateStr(dateStr: string, offsetDays: number): string {
   return next.toISOString().slice(0, 10);
 }
 
-function daysAgoFromToday(targetDate: string, todayKst: string): number {
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const t = new Date(targetDate + 'T00:00:00+09:00').getTime();
-  const n = new Date(todayKst + 'T00:00:00+09:00').getTime();
-  return Math.max(0, Math.round((n - t) / msPerDay));
-}
 
 function generateId(url: string) {
   return crypto.createHash('md5').update(url).digest('hex');
@@ -285,20 +274,11 @@ export default async function handler(req: any, res: any) {
   try {
     const todayKst = getKstDateStr(new Date());
     const targetDate = typeof req.query.date === 'string' ? req.query.date : todayKst;
-    const daysAgo = daysAgoFromToday(targetDate, todayKst);
-    const isToday = daysAgo === 0;
+    const isToday = targetDate === todayKst;
 
-    // Build Google queries
-    let googleQueries: string[];
-    if (isToday) {
-      const prevDate = getKstOffsetDateStr(targetDate, -1);
-      const nextDate = getKstOffsetDateStr(targetDate, +2);
-      googleQueries = BASE_QUERIES_TODAY.map(q => `${q} after:${prevDate} before:${nextDate}`);
-    } else {
-      // Google News RSS only reliably supports when:1d and when:7d for past dates.
-      const dateParam = 'when:7d';
-      googleQueries = BASE_QUERIES_PAST.map(q => `${q} ${dateParam}`);
-    }
+    const prevDate = getKstOffsetDateStr(targetDate, -1);
+    const nextDate = getKstOffsetDateStr(targetDate, +2);
+    const googleQueries = BASE_QUERIES.map(q => `${q} after:${prevDate} before:${nextDate}`);
 
     const tags = await getTagsFromConfig();
 
