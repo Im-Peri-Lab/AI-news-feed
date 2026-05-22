@@ -258,10 +258,22 @@ function processNaverItem(item: NaverNewsItem, tagSpecs: TagSpec[]) {
   };
 }
 
-async function fetchAllNews(): Promise<any[]> {
+interface FetchStats {
+  googleRaw: number;
+  googleAfterDateFilter: number;
+  naverRaw: number;
+  naverSkipped: boolean;
+  finalTotal: number;
+}
+
+async function fetchAllNews(): Promise<{ articles: any[]; stats: FetchStats }> {
   const now = new Date();
   const dateStr = getKstDateStr(now);
   const searchQueries = buildSearchQueries(dateStr);
+
+  const naverClientId = process.env.NAVER_CLIENT_ID;
+  const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
+  const naverConfigured = !!(naverClientId && naverClientSecret);
 
   const [tagSpecs, googleResults, naverResults] = await Promise.all([
     getTags(),
@@ -284,27 +296,42 @@ async function fetchAllNews(): Promise<any[]> {
     articles.push(article);
   }
 
+  let googleRaw = 0;
+  let googleAfterDateFilter = 0;
   for (const result of googleResults) {
     if (result.status !== 'fulfilled') continue;
     for (const item of result.value) {
       if (!item.link) continue;
+      googleRaw++;
       const article = processArticle(item, tagSpecs);
       // Post-filter to KST dateStr: the RSS window is widened by ±1 day to cover
       // the UTC/KST boundary gap, so trim back to the target date here.
       if (article.publishedDate !== dateStr) continue;
+      googleAfterDateFilter++;
       addArticle(article);
     }
   }
 
+  let naverRaw = 0;
   for (const result of naverResults) {
     if (result.status !== 'fulfilled') continue;
     for (const item of result.value) {
       if (!item.link && !item.originallink) continue;
+      naverRaw++;
       addArticle(processNaverItem(item as NaverNewsItem, tagSpecs));
     }
   }
 
-  return articles;
+  const stats: FetchStats = {
+    googleRaw,
+    googleAfterDateFilter,
+    naverRaw,
+    naverSkipped: !naverConfigured,
+    finalTotal: articles.length,
+  };
+  console.log('[fetch] stats:', JSON.stringify(stats));
+
+  return { articles, stats };
 }
 
 export default async function handler(req: any, res: any) {
@@ -313,8 +340,8 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const articles = await fetchAllNews();
-    res.json({ saved: articles.length, total: articles.length });
+    const { articles, stats } = await fetchAllNews();
+    res.json({ saved: articles.length, total: articles.length, stats });
   } catch (e: any) {
     console.error('POST /api/fetch error:', e);
     res.status(500).json({ error: 'Internal server error' });
