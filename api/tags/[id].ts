@@ -1,4 +1,4 @@
-interface TagSpec { id: string; name: string; category: string; keywords: string[]; }
+interface TagSpec { id: string; name: string; category: string; keywords: string[]; excludeKeywords?: string[]; }
 
 const DEFAULT_TAGS: TagSpec[] = [
   { id: 'gen-ai', name: '생성형 AI', category: '기술', keywords: ['생성형 AI', 'generative AI', '생성형 인공지능'] },
@@ -82,12 +82,13 @@ export default async function handler(req: any, res: any) {
       const idx = tags.findIndex(t => t.id === id);
       if (idx === -1) return res.status(404).json({ error: 'Tag not found' });
 
-      const { name, category, keywords } = req.body;
+      const { name, category, keywords, excludeKeywords } = req.body;
       tags[idx] = {
         ...tags[idx],
         ...(name !== undefined && { name: name.trim() }),
         ...(category !== undefined && { category }),
         ...(keywords !== undefined && { keywords }),
+        ...(excludeKeywords !== undefined && { excludeKeywords }),
       };
       await updateEdgeConfigKey('tags', tags);
       return res.json(tags[idx]);

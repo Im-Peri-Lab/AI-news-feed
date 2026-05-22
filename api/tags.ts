@@ -60,7 +60,7 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === 'POST') {
     try {
-      const { name, category, keywords } = req.body;
+      const { name, category, keywords, excludeKeywords } = req.body;
       if (!name || !category) return res.status(400).json({ error: 'name and category are required' });
 
       const [tags, categories] = await Promise.all([getTagsFromConfig(), getCategoriesFromConfig()]);
@@ -70,7 +70,7 @@ export default async function handler(req: any, res: any) {
         return res.status(409).json({ error: `Tag with id "${id}" already exists` });
       }
 
-      const newTag: TagSpec = { id, name: name.trim(), category, keywords: keywords ?? [] };
+      const newTag: TagSpec = { id, name: name.trim(), category, keywords: keywords ?? [], ...(excludeKeywords !== undefined && { excludeKeywords }) };
       await updateEdgeConfigKey('tags', [...tags, newTag]);
       // Ensure categories are persisted too
       if (categories === DEFAULT_CATEGORIES) await updateEdgeConfigKey('categories', DEFAULT_CATEGORIES);
