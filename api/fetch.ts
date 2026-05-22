@@ -1,6 +1,6 @@
 import Parser from 'rss-parser';
 import crypto from 'crypto';
-import { DEFAULT_TAGS, type TagSpec } from '../lib/apiConstants.js';
+import { type TagSpec } from '../lib/apiConstants.js';
 
 function getEdgeConfigId(): string {
   const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
@@ -10,17 +10,15 @@ function getEdgeConfigId(): string {
 async function getTags(): Promise<TagSpec[]> {
   const edgeConfigId = getEdgeConfigId();
   const token = process.env.VERCEL_API_TOKEN;
-  if (!edgeConfigId || !token) return DEFAULT_TAGS;
-  try {
-    const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/item/tags`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return DEFAULT_TAGS;
-    const data = await res.json();
-    return (data?.value as TagSpec[]) ?? DEFAULT_TAGS;
-  } catch {
-    return DEFAULT_TAGS;
-  }
+  if (!edgeConfigId || !token) throw new Error('Edge Config not configured');
+  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/item/tags`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Edge Config read failed: ${res.status}`);
+  const data = await res.json();
+  const tags = data?.value as TagSpec[] | null;
+  if (!tags) throw new Error('No tags found in Edge Config');
+  return tags;
 }
 
 const SEARCH_QUERIES = [

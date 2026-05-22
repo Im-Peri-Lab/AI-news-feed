@@ -1,14 +1,24 @@
 import Parser from 'rss-parser';
 import crypto from 'crypto';
-import { get } from '@vercel/edge-config';
-import { DEFAULT_TAGS, type TagSpec } from '../lib/apiConstants.js';
+import { type TagSpec } from '../lib/apiConstants.js';
+
+function getEdgeConfigId(): string {
+  const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
+  return match ? match[0] : '';
+}
 
 async function getTagsFromConfig(): Promise<TagSpec[]> {
-  try {
-    return (await get<TagSpec[]>('tags')) ?? DEFAULT_TAGS;
-  } catch {
-    return DEFAULT_TAGS;
-  }
+  const edgeConfigId = getEdgeConfigId();
+  const token = process.env.VERCEL_API_TOKEN;
+  if (!edgeConfigId || !token) throw new Error('Edge Config not configured');
+  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/item/tags`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Edge Config read failed: ${res.status}`);
+  const data = await res.json();
+  const tags = data?.value as TagSpec[] | null;
+  if (!tags) throw new Error('No tags found in Edge Config');
+  return tags;
 }
 
 const parser = new Parser({
@@ -80,9 +90,9 @@ function processArticle(item: any, TAGS: TagSpec[]) {
   const matchedTerms: string[] = [];
 
   TAGS.forEach(tag => {
-    const isMatched = tag.keywords.some(keyword =>
-      title.toLowerCase().includes(keyword.toLowerCase())
-    );
+    const isMatched =
+      tag.keywords.some(keyword => title.toLowerCase().includes(keyword.toLowerCase())) &&
+      !(tag.excludeKeywords ?? []).some(kw => title.toLowerCase().includes(kw.toLowerCase()));
     if (isMatched) {
       if (!tags.includes(tag.name)) tags.push(tag.name);
       if (!categories.includes(tag.category)) categories.push(tag.category);
@@ -187,14 +197,7 @@ export default async function handler(req: any, res: any) {
 
     const queries = BASE_QUERIES.map(q => `${q} ${dateParam}`);
 
-    let tags: TagSpec[];
-    try {
-      tags = await getTagsFromConfig();
-    } catch (e) {
-      console.error('[api/news] Edge Config tag load failed, using defaults:', e);
-      tags = DEFAULT_TAGS;
-    }
-
+    const tags = await getTagsFromConfig();
     const articles = await fetchAllNews(queries, tags);
 
     const filtered = articles
