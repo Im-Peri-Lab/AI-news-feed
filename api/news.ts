@@ -307,6 +307,7 @@ export default async function handler(req: any, res: any) {
       all.push(article);
     }
 
+    const googleRaw = googleResults.map(r => r.status === 'fulfilled' ? r.value.length : 0);
     for (const result of googleResults) {
       if (result.status !== 'fulfilled') continue;
       for (const item of result.value) {
@@ -314,7 +315,9 @@ export default async function handler(req: any, res: any) {
         addArticle(processArticle(item, tags));
       }
     }
+    const googleAfterDedup = all.length;
 
+    const naverRaw = naverResults.map((r: any) => r.status === 'fulfilled' ? r.value.length : 0);
     for (const result of naverResults) {
       if (result.status !== 'fulfilled') continue;
       for (const item of result.value) {
@@ -323,13 +326,32 @@ export default async function handler(req: any, res: any) {
       }
     }
 
+    const beforeDedup = (googleRaw.reduce((a: number, b: number) => a + b, 0)) + (naverRaw.reduce((a: number, b: number) => a + b, 0));
     const filtered = all
       .filter(a => a.publishedDate === targetDate)
       .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
+    const googleAfterDateFilter = all.filter(a => a.collector === 'google_news_rss' && a.publishedDate === targetDate).length;
+    const naverAfterDateFilter = all.filter(a => a.collector === 'naver_news_api' && a.publishedDate === targetDate).length;
+
     res.json({
       total: filtered.length,
       articles: filtered,
+      stats: {
+        google: {
+          query1Raw: googleRaw[0] ?? 0,
+          query2Raw: googleRaw[1] ?? 0,
+          afterDateFilter: googleAfterDateFilter,
+        },
+        naver: {
+          query1Raw: naverRaw[0] ?? 0,
+          query2Raw: naverRaw[1] ?? 0,
+          afterDateFilter: naverAfterDateFilter,
+        },
+        beforeDedup,
+        afterGoogleDedup: googleAfterDedup,
+        finalTotal: filtered.length,
+      },
     });
   } catch (e: any) {
     console.error('GET /api/news error:', e);
