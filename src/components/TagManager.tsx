@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, DragEvent, KeyboardEvent } from 'react';
 import { X, Plus, Pencil, Trash2, Check, GripVertical, Loader2, ChevronDown } from 'lucide-react';
 import { useTags } from '../contexts/TagsContext';
 import { createTag, updateTag, deleteTag, createCategory, updateCategory, deleteCategory, reorderTags, reorderCategories } from '../services/tagService';
@@ -100,13 +100,13 @@ export default function TagManager({ onClose }: TagManagerProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragInsert, setDragInsert] = useState<{ catName: string; idx: number } | null>(null);
 
-  function onTagDragStart(e: React.DragEvent, tagId: string) {
+  function onTagDragStart(e: DragEvent, tagId: string) {
     e.dataTransfer.setData('tagId', tagId);
     e.dataTransfer.effectAllowed = 'move';
     setDragId(tagId);
   }
 
-  function onTagDragOver(e: React.DragEvent<HTMLDivElement>, tagIdx: number, catName: string) {
+  function onTagDragOver(e: DragEvent<HTMLDivElement>, tagIdx: number, catName: string) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const rect = e.currentTarget.getBoundingClientRect();
@@ -145,7 +145,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
     }
   }
 
-  async function onTagDrop(e: React.DragEvent, catName: string) {
+  async function onTagDrop(e: DragEvent, catName: string) {
     e.preventDefault();
     const sourceId = e.dataTransfer.getData('tagId');
     const insert = dragInsert;
@@ -158,13 +158,13 @@ export default function TagManager({ onClose }: TagManagerProps) {
   const [dragCatId, setDragCatId] = useState<string | null>(null);
   const [dragCatInsertIdx, setDragCatInsertIdx] = useState<number | null>(null);
 
-  function onCatDragStart(e: React.DragEvent, catId: string) {
+  function onCatDragStart(e: DragEvent, catId: string) {
     e.dataTransfer.setData('catId', catId);
     e.dataTransfer.effectAllowed = 'move';
     setDragCatId(catId);
   }
 
-  function onCatDragOver(e: React.DragEvent<HTMLDivElement>, idx: number) {
+  function onCatDragOver(e: DragEvent<HTMLDivElement>, idx: number) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const rect = e.currentTarget.getBoundingClientRect();
@@ -194,7 +194,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
     }
   }
 
-  async function onCatDrop(e: React.DragEvent) {
+  async function onCatDrop(e: DragEvent) {
     e.preventDefault();
     const sourceId = e.dataTransfer.getData('catId');
     const insertIdx = dragCatInsertIdx;

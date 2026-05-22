@@ -2,6 +2,8 @@ import Parser from 'rss-parser';
 import crypto from 'crypto';
 import { type TagSpec } from '../lib/apiConstants.js';
 
+const parser = new Parser();
+
 function getEdgeConfigId(): string {
   const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
   return match ? match[0] : '';
