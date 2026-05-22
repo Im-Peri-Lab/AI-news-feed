@@ -1,13 +1,5 @@
 import { type CategoryDef } from '../lib/apiConstants.js';
-
-const COLOR_PALETTE = [
-  { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-100' },
-  { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-100' },
-  { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-100' },
-  { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-100' },
-  { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-100' },
-  { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-100' },
-];
+import { pickColor } from '../lib/colorPalette.js';
 
 function getEdgeConfigId(): string {
   const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
@@ -65,7 +57,7 @@ export default async function handler(req: any, res: any) {
         return res.status(409).json({ error: `Category with id "${id}" already exists` });
       }
 
-      const color = COLOR_PALETTE[categories.length % COLOR_PALETTE.length];
+      const color = pickColor(categories.map((c) => c.color));
       const newCategory: CategoryDef = { id, name: name.trim(), color };
       await updateEdgeConfigKey('categories', [...categories, newCategory]);
       return res.status(201).json(newCategory);
