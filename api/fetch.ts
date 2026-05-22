@@ -1,6 +1,11 @@
 import Parser from 'rss-parser';
 import crypto from 'crypto';
-import { DEFAULT_TAGS as TAGS } from '../lib/apiConstants.js';
+import { get } from '@vercel/edge-config';
+import { DEFAULT_TAGS, type TagSpec } from '../lib/apiConstants.js';
+
+async function getTags(): Promise<TagSpec[]> {
+  try { return (await get<TagSpec[]>('tags')) ?? DEFAULT_TAGS; } catch { return DEFAULT_TAGS; }
+}
 
 const SEARCH_QUERIES = [
   '(AI OR 인공지능 OR "생성형 AI") when:7d',
@@ -27,7 +32,7 @@ function generateId(url: string) {
   return crypto.createHash('md5').update(url).digest('hex');
 }
 
-function processArticle(item: any) {
+function processArticle(item: any, tagSpecs: TagSpec[]) {
   let title = item.title || '';
   let source = item.creator || item.author || 'AI News';
 
@@ -50,7 +55,7 @@ function processArticle(item: any) {
   const categories: string[] = [];
   const matchedTerms: string[] = [];
 
-  TAGS.forEach(tag => {
+  tagSpecs.forEach(tag => {
     const isMatched =
       tag.keywords.some(keyword => title.toLowerCase().includes(keyword.toLowerCase())) &&
       !(tag.excludeKeywords ?? []).some(kw => title.toLowerCase().includes(kw.toLowerCase()));
@@ -119,7 +124,10 @@ async function fetchWithRetry(query: string, retries = 2, backoff = 2000): Promi
 }
 
 async function fetchAllNews(): Promise<any[]> {
-  const results = await Promise.allSettled(SEARCH_QUERIES.map(q => fetchWithRetry(q)));
+  const [tagSpecs, results] = await Promise.all([
+    getTags(),
+    Promise.allSettled(SEARCH_QUERIES.map(q => fetchWithRetry(q))),
+  ]);
 
   const seenIds = new Set<string>();
   const articles: any[] = [];
@@ -128,7 +136,7 @@ async function fetchAllNews(): Promise<any[]> {
     if (result.status !== 'fulfilled') continue;
     for (const item of result.value) {
       if (!item.link) continue;
-      const article = processArticle(item);
+      const article = processArticle(item, tagSpecs);
       if (!seenIds.has(article.id)) {
         seenIds.add(article.id);
         articles.push(article);
