@@ -276,9 +276,12 @@ export default async function handler(req: any, res: any) {
     const targetDate = typeof req.query.date === 'string' ? req.query.date : todayKst;
     const isToday = targetDate === todayKst;
 
-    const prevDate = getKstOffsetDateStr(targetDate, -1);
-    const nextDate = getKstOffsetDateStr(targetDate, +2);
-    const googleQueries = BASE_QUERIES.map(q => `${q} after:${prevDate} before:${nextDate}`);
+    // For today, widen by ±1 day to cover the 9-hour KST/UTC boundary gap,
+    // then post-filter by publishedDate. For past dates the boundary issue is
+    // irrelevant, so use the exact date range to avoid crowding out the target.
+    const afterDate = isToday ? getKstOffsetDateStr(targetDate, -1) : targetDate;
+    const beforeDate = getKstOffsetDateStr(targetDate, +1);
+    const googleQueries = BASE_QUERIES.map(q => `${q} after:${afterDate} before:${beforeDate}`);
 
     const tags = await getTagsFromConfig();
 
