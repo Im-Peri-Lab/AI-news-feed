@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
-
-type ThemePref = 'light' | 'dark' | 'auto';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const SEOUL = { lat: 37.5665, lng: 126.9780 };
+const RECHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 async function fetchSunTimes(lat: number, lng: number): Promise<{ sunrise: Date; sunset: Date } | null> {
   try {
@@ -43,7 +42,6 @@ async function resolveAutoDark(): Promise<boolean> {
 
   const sun = await fetchSunTimes(coords.lat, coords.lng);
   if (!sun) {
-    // Fallback: dark between 19:00 and 07:00 KST
     const kstHour = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' })).getHours();
     return kstHour >= 19 || kstHour < 7;
   }
@@ -51,29 +49,23 @@ async function resolveAutoDark(): Promise<boolean> {
 }
 
 export function useTheme() {
-  const [pref, setPref] = useState<ThemePref>(() => {
-    const stored = localStorage.getItem('theme') as ThemePref | null;
-    if (stored === 'dark' || stored === 'light' || stored === 'auto') return stored;
-    return 'auto';
-  });
+  const [isDark, setIsDark] = useState(false);
+  // null = following auto, boolean = manual override
+  const overrideRef = useRef<boolean | null>(null);
 
-  const [isDark, setIsDark] = useState(() => {
-    // Synchronous initial guess while async resolves
-    const stored = localStorage.getItem('theme');
-    if (stored === 'dark') return true;
-    if (stored === 'light') return false;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
-
-  // Resolve auto theme asynchronously
-  useEffect(() => {
-    if (pref !== 'auto') return;
-    let cancelled = false;
+  const applyAuto = useCallback(() => {
     resolveAutoDark().then((dark) => {
-      if (!cancelled) setIsDark(dark);
+      overrideRef.current = null;
+      setIsDark(dark);
     });
-    return () => { cancelled = true; };
-  }, [pref]);
+  }, []);
+
+  // Initial resolve + hourly recheck
+  useEffect(() => {
+    applyAuto();
+    const id = setInterval(applyAuto, RECHECK_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [applyAuto]);
 
   // Apply to DOM
   useEffect(() => {
@@ -81,20 +73,13 @@ export function useTheme() {
     document.body.classList.toggle('dark', isDark);
   }, [isDark]);
 
-  // Persist pref
-  useEffect(() => {
-    localStorage.setItem('theme', pref);
-    if (pref !== 'auto') setIsDark(pref === 'dark');
-  }, [pref]);
-
   const toggle = useCallback(() => {
-    // Manual toggle → lock to opposite of current
-    setPref(isDark ? 'light' : 'dark');
-  }, [isDark]);
-
-  const setAuto = useCallback(() => {
-    setPref('auto');
+    setIsDark((prev) => {
+      const next = !prev;
+      overrideRef.current = next;
+      return next;
+    });
   }, []);
 
-  return { isDark, isAuto: pref === 'auto', toggle, setAuto };
+  return { isDark, toggle };
 }
