@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { TagSpec, CategoryDef } from '../types';
-import { TAGS, DEFAULT_CATEGORIES, CATEGORY_COLORS } from '../constants/tags';
+import { CATEGORY_COLORS } from '../constants/tags';
 
 interface TagsContextValue {
   tags: TagSpec[];
@@ -15,9 +15,9 @@ interface TagsContextValue {
 const UNCLASSIFIED_COLOR = { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200' };
 
 const TagsContext = createContext<TagsContextValue>({
-  tags: TAGS,
-  categories: DEFAULT_CATEGORIES,
-  isLoading: false,
+  tags: [],
+  categories: [],
+  isLoading: true,
   getCategoryColor: (name) => CATEGORY_COLORS[name] ?? UNCLASSIFIED_COLOR,
   refresh: async () => {},
   mutateTags: () => {},
@@ -25,8 +25,8 @@ const TagsContext = createContext<TagsContextValue>({
 });
 
 export function TagsProvider({ children }: { children: ReactNode }) {
-  const [tags, setTags] = useState<TagSpec[]>(TAGS);
-  const [categories, setCategories] = useState<CategoryDef[]>(DEFAULT_CATEGORIES);
+  const [tags, setTags] = useState<TagSpec[]>([]);
+  const [categories, setCategories] = useState<CategoryDef[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -37,7 +37,7 @@ export function TagsProvider({ children }: { children: ReactNode }) {
       if (data.tags) setTags(data.tags);
       if (data.categories) setCategories(data.categories);
     } catch {
-      // fall back to defaults already set
+      // fall back to empty — UI shows loading state until resolved
     } finally {
       setIsLoading(false);
     }
