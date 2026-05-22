@@ -357,18 +357,22 @@ export default function TagManager({ onClose }: TagManagerProps) {
                         placeholder="태그명" className={cn(INPUT_CLS, "flex-1 min-w-0")} autoFocus />
                       <CategorySelect value={addCategory} onChange={setAddCategory} options={categories} />
                     </div>
-                    <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
-                      {addKeywords.map(kw => (
-                        <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
-                          {kw}
-                          <button onClick={() => setAddKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
-                        </span>
-                      ))}
-                      <input value={addKwInput} onChange={e => setAddKwInput(e.target.value)} onKeyDown={onAddKwKey} onBlur={pushAddKw}
-                        placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
-                    </div>
                     <div>
-                      <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">제외 키워드 <span className="font-normal">— 이 단어가 제목에 있으면 태그를 붙이지 않습니다</span></p>
+                      <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">키워드</p>
+                      <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
+                        {addKeywords.map(kw => (
+                          <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
+                            {kw}
+                            <button onClick={() => setAddKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
+                          </span>
+                        ))}
+                        <input value={addKwInput} onChange={e => setAddKwInput(e.target.value)} onKeyDown={onAddKwKey} onBlur={pushAddKw}
+                          placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                      </div>
+                    </div>
+                    <div className="border-t border-gray-100 dark:border-gray-700" />
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">제외 키워드</p>
                       <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
                         {addExcludeKeywords.map(kw => (
                           <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1 !bg-red-50 dark:!bg-red-900/20 !text-red-500 dark:!text-red-400")}>
@@ -424,18 +428,22 @@ export default function TagManager({ onClose }: TagManagerProps) {
                                     placeholder="태그명" className={cn(INPUT_CLS, "flex-1 min-w-0")} />
                                   <CategorySelect value={editCategory} onChange={setEditCategory} options={categories} />
                                 </div>
-                                <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
-                                  {editKeywords.map(kw => (
-                                    <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
-                                      {kw}
-                                      <button onClick={() => setEditKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
-                                    </span>
-                                  ))}
-                                  <input value={editKwInput} onChange={e => setEditKwInput(e.target.value)} onKeyDown={onEditKwKey} onBlur={pushEditKw}
-                                    placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
-                                </div>
                                 <div>
-                                  <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">제외 키워드 <span className="font-normal">— 이 단어가 제목에 있으면 태그를 붙이지 않습니다</span></p>
+                                  <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">키워드</p>
+                                  <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
+                                    {editKeywords.map(kw => (
+                                      <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
+                                        {kw}
+                                        <button onClick={() => setEditKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
+                                      </span>
+                                    ))}
+                                    <input value={editKwInput} onChange={e => setEditKwInput(e.target.value)} onKeyDown={onEditKwKey} onBlur={pushEditKw}
+                                      placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                                  </div>
+                                </div>
+                                <div className="border-t border-gray-100 dark:border-gray-700" />
+                                <div>
+                                  <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">제외 키워드</p>
                                   <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
                                     {editExcludeKeywords.map(kw => (
                                       <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1 !bg-red-50 dark:!bg-red-900/20 !text-red-500 dark:!text-red-400")}>
