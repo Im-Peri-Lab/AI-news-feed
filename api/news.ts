@@ -62,6 +62,12 @@ function generateId(url: string) {
   return crypto.createHash('md5').update(url).digest('hex');
 }
 
+function isExactMatch(title: string, keyword: string): boolean {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(?<![a-zA-Z0-9가-힣])${escaped}(?![a-zA-Z0-9가-힣])`, 'i');
+  return regex.test(title);
+}
+
 function processArticle(item: any, TAGS: TagSpec[]) {
   let title = item.title || '';
   let source = item.creator || item.author || 'AI News';
@@ -90,9 +96,10 @@ function processArticle(item: any, TAGS: TagSpec[]) {
   const matchedTerms: string[] = [];
 
   TAGS.forEach(tag => {
-    const isMatched =
-      tag.keywords.some(keyword => title.toLowerCase().includes(keyword.toLowerCase())) &&
-      !(tag.excludeKeywords ?? []).some(kw => title.toLowerCase().includes(kw.toLowerCase()));
+    const hasExactMatch = tag.keywords.some(kw => isExactMatch(title, kw));
+    const hasPartialMatch = !hasExactMatch && tag.keywords.some(kw => title.toLowerCase().includes(kw.toLowerCase()));
+    const isExcluded = (tag.excludeKeywords ?? []).some(kw => title.toLowerCase().includes(kw.toLowerCase()));
+    const isMatched = hasExactMatch || (hasPartialMatch && !isExcluded);
     if (isMatched) {
       if (!tags.includes(tag.name)) tags.push(tag.name);
       if (!categories.includes(tag.category)) categories.push(tag.category);
