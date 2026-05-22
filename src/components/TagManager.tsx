@@ -342,7 +342,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                 </button>
               ) : (
                 <div className="relative border border-brand/25 bg-brand-light/20 dark:bg-gray-800 rounded-xl p-4">
-                  <div className={cn("space-y-3", spinnerKey === 'add-tag' && DIM_CLS)}>
+                  <div className={cn("space-y-2", spinnerKey === 'add-tag' && DIM_CLS)}>
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] font-black text-brand uppercase tracking-wider">새 태그 추가</p>
                       <button
@@ -358,7 +358,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                       <CategorySelect value={addCategory} onChange={setAddCategory} options={categories} />
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">키워드</p>
+                      <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">매핑 키워드</p>
                       <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
                         {addKeywords.map(kw => (
                           <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
@@ -367,11 +367,11 @@ export default function TagManager({ onClose }: TagManagerProps) {
                           </span>
                         ))}
                         <input value={addKwInput} onChange={e => setAddKwInput(e.target.value)} onKeyDown={onAddKwKey} onBlur={pushAddKw}
-                          placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                          placeholder="매핑 키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
                       </div>
                     </div>
                     <div className="border-t border-gray-100 dark:border-gray-700" />
-                    <div>
+                    <div className="-mb-1">
                       <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">제외 키워드</p>
                       <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
                         {addExcludeKeywords.map(kw => (
@@ -429,7 +429,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                                   <CategorySelect value={editCategory} onChange={setEditCategory} options={categories} />
                                 </div>
                                 <div>
-                                  <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">키워드</p>
+                                  <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">매핑 키워드</p>
                                   <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
                                     {editKeywords.map(kw => (
                                       <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
@@ -438,11 +438,11 @@ export default function TagManager({ onClose }: TagManagerProps) {
                                       </span>
                                     ))}
                                     <input value={editKwInput} onChange={e => setEditKwInput(e.target.value)} onKeyDown={onEditKwKey} onBlur={pushEditKw}
-                                      placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                                      placeholder="매핑 키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
                                   </div>
                                 </div>
                                 <div className="border-t border-gray-100 dark:border-gray-700" />
-                                <div>
+                                <div className="-mb-1">
                                   <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">제외 키워드</p>
                                   <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
                                     {editExcludeKeywords.map(kw => (
