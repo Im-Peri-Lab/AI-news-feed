@@ -32,16 +32,21 @@ function getKstDateStr(date: Date): string {
   }).format(date);
 }
 
-function getKstNextDateStr(dateStr: string): string {
+function getKstOffsetDateStr(dateStr: string, offsetDays: number): string {
   const [y, m, d] = dateStr.split('-').map(Number);
-  const next = new Date(Date.UTC(y, m - 1, d + 1));
+  const next = new Date(Date.UTC(y, m - 1, d + offsetDays));
   return next.toISOString().slice(0, 10);
 }
 
-function buildSearchQueries(dateStr: string, nextDateStr: string): string[] {
+function buildSearchQueries(dateStr: string): string[] {
+  // Google RSS after/before are interpreted as UTC boundaries, so KST 00:00–08:59
+  // would fall outside after:dateStr. Widen the window by one day on each side and
+  // filter to KST dateStr after parsing.
+  const prevDateStr = getKstOffsetDateStr(dateStr, -1);
+  const nextDateStr = getKstOffsetDateStr(dateStr, +2);
   return [
-    `(AI OR 인공지능) after:${dateStr} before:${nextDateStr}`,
-    `(생성형 AI OR LLM OR AI 에이전트 OR AI 반도체) after:${dateStr} before:${nextDateStr}`,
+    `(AI OR 인공지능) after:${prevDateStr} before:${nextDateStr}`,
+    `(생성형 AI OR LLM OR AI 에이전트 OR AI 반도체) after:${prevDateStr} before:${nextDateStr}`,
   ];
 }
 
@@ -256,8 +261,7 @@ function processNaverItem(item: NaverNewsItem, tagSpecs: TagSpec[]) {
 async function fetchAllNews(): Promise<any[]> {
   const now = new Date();
   const dateStr = getKstDateStr(now);
-  const nextDateStr = getKstNextDateStr(dateStr);
-  const searchQueries = buildSearchQueries(dateStr, nextDateStr);
+  const searchQueries = buildSearchQueries(dateStr);
 
   const [tagSpecs, googleResults, naverResults] = await Promise.all([
     getTags(),
@@ -284,7 +288,11 @@ async function fetchAllNews(): Promise<any[]> {
     if (result.status !== 'fulfilled') continue;
     for (const item of result.value) {
       if (!item.link) continue;
-      addArticle(processArticle(item, tagSpecs));
+      const article = processArticle(item, tagSpecs);
+      // Post-filter to KST dateStr: the RSS window is widened by ±1 day to cover
+      // the UTC/KST boundary gap, so trim back to the target date here.
+      if (article.publishedDate !== dateStr) continue;
+      addArticle(article);
     }
   }
 
