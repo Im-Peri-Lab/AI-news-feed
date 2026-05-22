@@ -1,4 +1,4 @@
-import { useEffect, useState, KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, KeyboardEvent } from 'react';
 import { X, Plus, Pencil, Trash2, Check, GripVertical, Loader2, ChevronDown } from 'lucide-react';
 import { useTags } from '../contexts/TagsContext';
 import { createTag, updateTag, deleteTag, createCategory, updateCategory, deleteCategory, reorderTags, reorderCategories } from '../services/tagService';
@@ -96,7 +96,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
   const [editCatId, setEditCatId] = useState<string | null>(null);
   const [editCatName, setEditCatName] = useState('');
 
-  // --- Drag and drop ---
+  // --- Drag and drop (shared by HTML5 drag and touch) ---
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragInsert, setDragInsert] = useState<{ catName: string; idx: number } | null>(null);
 
@@ -118,17 +118,11 @@ export default function TagManager({ onClose }: TagManagerProps) {
 
   function cleanDrag() { setDragId(null); setDragInsert(null); }
 
-  async function onTagDrop(e: React.DragEvent, catName: string) {
-    e.preventDefault();
-    const sourceId = e.dataTransfer.getData('tagId');
-    const insert = dragInsert;
-    cleanDrag();
-    if (!sourceId || !insert || insert.catName !== catName) return;
-
+  async function commitTagReorder(sourceId: string, insert: { catName: string; idx: number }) {
     const sourceTag = tags.find(t => t.id === sourceId);
-    if (!sourceTag || sourceTag.category !== catName) return;
+    if (!sourceTag || sourceTag.category !== insert.catName) return;
 
-    const catTags = tags.filter(t => t.category === catName);
+    const catTags = tags.filter(t => t.category === insert.catName);
     const sourceIdx = catTags.findIndex(t => t.id === sourceId);
     if (sourceIdx === -1) return;
     if (insert.idx === sourceIdx || insert.idx === sourceIdx + 1) return;
@@ -139,7 +133,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
     newCatTags.splice(insertAt, 0, sourceTag);
 
     let ci = 0;
-    const newTags = tags.map(t => t.category === catName ? newCatTags[ci++] : t);
+    const newTags = tags.map(t => t.category === insert.catName ? newCatTags[ci++] : t);
 
     const prevTags = tags;
     mutateTags(() => newTags);
@@ -149,6 +143,15 @@ export default function TagManager({ onClose }: TagManagerProps) {
       mutateTags(() => prevTags);
       alert(err.message);
     }
+  }
+
+  async function onTagDrop(e: React.DragEvent, catName: string) {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('tagId');
+    const insert = dragInsert;
+    cleanDrag();
+    if (!sourceId || !insert || insert.catName !== catName) return;
+    await commitTagReorder(sourceId, insert);
   }
 
   // --- Category drag and drop ---
@@ -171,13 +174,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
 
   function cleanCatDrag() { setDragCatId(null); setDragCatInsertIdx(null); }
 
-  async function onCatDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const sourceId = e.dataTransfer.getData('catId');
-    const insertIdx = dragCatInsertIdx;
-    cleanCatDrag();
-    if (!sourceId || insertIdx === null) return;
-
+  async function commitCatReorder(sourceId: string, insertIdx: number) {
     const sourceIdx = categories.findIndex(c => c.id === sourceId);
     if (sourceIdx === -1) return;
     if (insertIdx === sourceIdx || insertIdx === sourceIdx + 1) return;
@@ -195,6 +192,125 @@ export default function TagManager({ onClose }: TagManagerProps) {
       mutateCategories(() => prevCats);
       alert(err.message);
     }
+  }
+
+  async function onCatDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('catId');
+    const insertIdx = dragCatInsertIdx;
+    cleanCatDrag();
+    if (!sourceId || insertIdx === null) return;
+    await commitCatReorder(sourceId, insertIdx);
+  }
+
+  // --- Touch drag (mobile) ---
+  // We attach touchmove/touchend via refs with { passive: false } so we can
+  // call preventDefault() to suppress scroll while dragging a row.
+  const touchDragRef = useRef<{
+    type: 'tag' | 'cat';
+    sourceId: string;
+    // For tags we also need the category name to stay in the right group.
+    sourceCat?: string;
+  } | null>(null);
+
+  // Resolve which tag row is under the touch point and update dragInsert.
+  function resolveTagInsert(clientX: number, clientY: number) {
+    // Hide the dragged element temporarily so elementFromPoint sees the row below.
+    const dragged = document.querySelector(`[data-tag-id="${touchDragRef.current?.sourceId}"]`) as HTMLElement | null;
+    if (dragged) dragged.style.visibility = 'hidden';
+
+    const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+
+    if (dragged) dragged.style.visibility = '';
+
+    const row = el?.closest('[data-tag-id]') as HTMLElement | null;
+    if (!row) { setDragInsert(null); return; }
+
+    const rowId = row.getAttribute('data-tag-id')!;
+    const rowCat = row.getAttribute('data-tag-cat')!;
+    const rowIdx = parseInt(row.getAttribute('data-tag-idx') ?? '0', 10);
+    const rowCatTotal = parseInt(row.getAttribute('data-tag-cat-total') ?? '1', 10);
+
+    const rect = row.getBoundingClientRect();
+    const half = clientY < rect.top + rect.height / 2;
+    // If hovering over the source row itself, keep current insert.
+    if (rowId === touchDragRef.current?.sourceId) return;
+
+    const insertIdx = half ? rowIdx : rowIdx + 1;
+    // Clamp to category bounds.
+    const clamped = Math.max(0, Math.min(insertIdx, rowCatTotal));
+    setDragInsert(prev =>
+      prev?.catName === rowCat && prev.idx === clamped ? prev : { catName: rowCat, idx: clamped }
+    );
+  }
+
+  // Resolve which category row is under the touch point and update dragCatInsertIdx.
+  function resolveCatInsert(clientX: number, clientY: number) {
+    const dragged = document.querySelector(`[data-cat-id="${touchDragRef.current?.sourceId}"]`) as HTMLElement | null;
+    if (dragged) dragged.style.visibility = 'hidden';
+
+    const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+
+    if (dragged) dragged.style.visibility = '';
+
+    const row = el?.closest('[data-cat-id]') as HTMLElement | null;
+    if (!row) { setDragCatInsertIdx(null); return; }
+
+    const rowIdx = parseInt(row.getAttribute('data-cat-idx') ?? '0', 10);
+    const rect = row.getBoundingClientRect();
+    const insertIdx = clientY < rect.top + rect.height / 2 ? rowIdx : rowIdx + 1;
+    setDragCatInsertIdx(prev => prev === insertIdx ? prev : insertIdx);
+  }
+
+  // Register passive:false touchmove on the scrollable container so we can
+  // preventDefault during a drag without triggering the browser warning.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    function onTouchMove(e: TouchEvent) {
+      if (!touchDragRef.current) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (touchDragRef.current.type === 'tag') {
+        resolveTagInsert(touch.clientX, touch.clientY);
+      } else {
+        resolveCatInsert(touch.clientX, touch.clientY);
+      }
+    }
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => el.removeEventListener('touchmove', onTouchMove);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tags, categories]);
+
+  function onTagGripTouchStart(tagId: string, catName: string) {
+    touchDragRef.current = { type: 'tag', sourceId: tagId, sourceCat: catName };
+    setDragId(tagId);
+    setDragInsert(null);
+  }
+
+  async function onTagGripTouchEnd() {
+    const drag = touchDragRef.current;
+    const insert = dragInsert;
+    touchDragRef.current = null;
+    cleanDrag();
+    if (!drag || drag.type !== 'tag' || !insert) return;
+    await commitTagReorder(drag.sourceId, insert);
+  }
+
+  function onCatGripTouchStart(catId: string) {
+    touchDragRef.current = { type: 'cat', sourceId: catId };
+    setDragCatId(catId);
+    setDragCatInsertIdx(null);
+  }
+
+  async function onCatGripTouchEnd() {
+    const drag = touchDragRef.current;
+    const insertIdx = dragCatInsertIdx;
+    touchDragRef.current = null;
+    cleanCatDrag();
+    if (!drag || drag.type !== 'cat' || insertIdx === null) return;
+    await commitCatReorder(drag.sourceId, insertIdx);
   }
 
   async function run<T>(key: string, fn: () => Promise<T>): Promise<T | undefined> {
@@ -329,7 +445,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {tab === 'tags' ? (
             <>
               {/* Add tag toggle button / inline form */}
@@ -465,6 +581,10 @@ export default function TagManager({ onClose }: TagManagerProps) {
                           ) : (
                             <div
                               draggable
+                              data-tag-id={tag.id}
+                              data-tag-cat={catName}
+                              data-tag-idx={idx}
+                              data-tag-cat-total={catTags.length}
                               onDragStart={e => onTagDragStart(e, tag.id)}
                               onDragOver={e => onTagDragOver(e, idx, catName)}
                               onDragEnd={cleanDrag}
@@ -474,7 +594,11 @@ export default function TagManager({ onClose }: TagManagerProps) {
                               )}
                             >
                               <div className={cn("flex items-start gap-2 px-2 py-2.5", spinnerKey === `delete-tag:${tag.id}` && DIM_CLS)}>
-                                <GripVertical className="w-4 h-4 shrink-0 mt-[5px] text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                                <GripVertical
+                                  className="w-4 h-4 shrink-0 mt-[5px] text-gray-300 dark:text-gray-600 cursor-grab touch-none md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                                  onTouchStart={() => onTagGripTouchStart(tag.id, catName)}
+                                  onTouchEnd={onTagGripTouchEnd}
+                                />
                                 <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0 min-w-20 max-w-[40%] truncate leading-5 mt-[3px]">{tag.name}</span>
                                 <div className="flex-1 flex flex-wrap items-center content-start gap-1 min-h-5 mt-[3px] ml-1">
                                   {tag.keywords.map(kw => (
@@ -560,6 +684,8 @@ export default function TagManager({ onClose }: TagManagerProps) {
                       )}
                       <div
                         draggable
+                        data-cat-id={cat.id}
+                        data-cat-idx={idx}
                         onDragStart={e => onCatDragStart(e, cat.id)}
                         onDragOver={e => onCatDragOver(e, idx)}
                         onDragEnd={cleanCatDrag}
@@ -569,7 +695,11 @@ export default function TagManager({ onClose }: TagManagerProps) {
                         )}
                       >
                         <div className={cn("flex items-center gap-2 px-2 py-2.5", rowBusy && DIM_CLS)}>
-                          <GripVertical className="w-4 h-4 shrink-0 text-gray-300 dark:text-gray-600 cursor-grab md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                          <GripVertical
+                            className="w-4 h-4 shrink-0 text-gray-300 dark:text-gray-600 cursor-grab touch-none md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                            onTouchStart={() => onCatGripTouchStart(cat.id)}
+                            onTouchEnd={onCatGripTouchEnd}
+                          />
                           <span className={cn("px-2 py-0.5 rounded text-[10px] font-black border shrink-0", cat.color.bg, cat.color.text, cat.color.border)}>
                             {cat.name}
                           </span>
