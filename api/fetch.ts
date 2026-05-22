@@ -1,10 +1,26 @@
 import Parser from 'rss-parser';
 import crypto from 'crypto';
-import { get } from '@vercel/edge-config';
 import { DEFAULT_TAGS, type TagSpec } from '../lib/apiConstants.js';
 
+function getEdgeConfigId(): string {
+  const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
+  return match ? match[0] : '';
+}
+
 async function getTags(): Promise<TagSpec[]> {
-  try { return (await get<TagSpec[]>('tags')) ?? DEFAULT_TAGS; } catch { return DEFAULT_TAGS; }
+  const edgeConfigId = getEdgeConfigId();
+  const token = process.env.VERCEL_API_TOKEN;
+  if (!edgeConfigId || !token) return DEFAULT_TAGS;
+  try {
+    const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/item/tags`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return DEFAULT_TAGS;
+    const data = await res.json();
+    return (data?.value as TagSpec[]) ?? DEFAULT_TAGS;
+  } catch {
+    return DEFAULT_TAGS;
+  }
 }
 
 const SEARCH_QUERIES = [
