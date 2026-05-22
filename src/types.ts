@@ -3,6 +3,7 @@ export interface TagSpec {
   name: string;
   category: string;
   keywords: string[];
+  excludeKeywords?: string[];
 }
 
 export interface CategoryDef {

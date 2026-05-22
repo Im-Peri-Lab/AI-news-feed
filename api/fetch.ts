@@ -51,9 +51,9 @@ function processArticle(item: any) {
   const matchedTerms: string[] = [];
 
   TAGS.forEach(tag => {
-    const isMatched = tag.keywords.some(keyword =>
-      title.toLowerCase().includes(keyword.toLowerCase())
-    );
+    const isMatched =
+      tag.keywords.some(keyword => title.toLowerCase().includes(keyword.toLowerCase())) &&
+      !(tag.excludeKeywords ?? []).some(kw => title.toLowerCase().includes(kw.toLowerCase()));
     if (isMatched) {
       if (!tags.includes(tag.name)) tags.push(tag.name);
       if (!categories.includes(tag.category)) categories.push(tag.category);

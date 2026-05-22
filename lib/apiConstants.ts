@@ -1,4 +1,4 @@
-export interface TagSpec { id: string; name: string; category: string; keywords: string[]; }
+export interface TagSpec { id: string; name: string; category: string; keywords: string[]; excludeKeywords?: string[]; }
 export interface CategoryDef { id: string; name: string; color: { bg: string; text: string; border: string }; }
 
 export const DEFAULT_TAGS: TagSpec[] = [
@@ -21,7 +21,7 @@ export const DEFAULT_TAGS: TagSpec[] = [
   { id: 'anthropic', name: 'Anthropic', category: '글로벌', keywords: ['Anthropic', '앤스로픽', 'Claude'] },
   { id: 'naver-ai', name: '네이버 AI', category: '국내', keywords: ['네이버 AI', '하이퍼클로바', 'HyperCLOVA', '네이버클라우드'] },
   { id: 'sk-ai', name: 'SK AI', category: '국내', keywords: ['SK AI', 'SK텔레콤 AI', '에이닷', 'A.', 'SKT AI'] },
-  { id: 'kt-ai', name: 'KT AI', category: '국내', keywords: ['KT AI', 'KT 인공지능', '믿음', 'Mi:dm'] },
+  { id: 'kt-ai', name: 'KT AI', category: '국내', keywords: ['KT AI', 'KT 인공지능', '믿음', 'Mi:dm'], excludeKeywords: ['SKT', 'SK텔레콤'] },
   { id: 'lg-ai', name: 'LG AI', category: '국내', keywords: ['LG AI', 'LG AI연구원', '엑사원', 'EXAONE'] },
   { id: 'samsung-ai', name: '삼성 AI', category: '국내', keywords: ['삼성 AI', 'Samsung AI', '갤럭시 AI', '가우스'] },
   { id: 'kakao-ai', name: '카카오 AI', category: '국내', keywords: ['카카오 AI', 'Kakao AI', '카나나'] },
