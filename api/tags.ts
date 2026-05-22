@@ -1,5 +1,4 @@
-import { get } from '@vercel/edge-config';
-import { DEFAULT_TAGS, DEFAULT_CATEGORIES, type TagSpec, type CategoryDef } from '../lib/apiConstants.js';
+import { type TagSpec, type CategoryDef } from '../lib/apiConstants.js';
 
 function getEdgeConfigId(): string {
   const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
@@ -21,12 +20,32 @@ async function updateEdgeConfigKey(key: string, value: unknown): Promise<void> {
   }
 }
 
+async function readEdgeConfigKey<T>(key: string): Promise<T | null> {
+  const edgeConfigId = getEdgeConfigId();
+  const token = process.env.VERCEL_API_TOKEN;
+  if (!edgeConfigId || !token) return null;
+  try {
+    const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/item/${key}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data?.value ?? null) as T | null;
+  } catch {
+    return null;
+  }
+}
+
 async function getTagsFromConfig(): Promise<TagSpec[]> {
-  try { return (await get<TagSpec[]>('tags')) ?? DEFAULT_TAGS; } catch { return DEFAULT_TAGS; }
+  const tags = await readEdgeConfigKey<TagSpec[]>('tags');
+  if (!tags) throw new Error('No tags found in Edge Config');
+  return tags;
 }
 
 async function getCategoriesFromConfig(): Promise<CategoryDef[]> {
-  try { return (await get<CategoryDef[]>('categories')) ?? DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; }
+  const categories = await readEdgeConfigKey<CategoryDef[]>('categories');
+  if (!categories) throw new Error('No categories found in Edge Config');
+  return categories;
 }
 
 function slugify(name: string): string {
@@ -40,40 +59,29 @@ function slugify(name: string): string {
 
 export default async function handler(req: any, res: any) {
   if (req.method === 'GET') {
-    let tags = DEFAULT_TAGS;
-    let categories = DEFAULT_CATEGORIES;
-    let edgeConfigError: string | null = null;
-
     try {
-      [tags, categories] = await Promise.all([getTagsFromConfig(), getCategoriesFromConfig()]);
+      const [tags, categories] = await Promise.all([getTagsFromConfig(), getCategoriesFromConfig()]);
+      return res.json({ tags, categories });
     } catch (e: any) {
-      edgeConfigError = e?.message ?? String(e);
-      console.error('[api/tags] Edge Config load failed, using defaults:', edgeConfigError);
+      console.error('[api/tags] Edge Config load failed:', e.message);
+      return res.status(503).json({ error: 'Tag data unavailable', detail: e.message });
     }
-
-    return res.json({
-      tags,
-      categories,
-      ...(edgeConfigError && { _edgeConfigError: edgeConfigError }),
-    });
   }
 
   if (req.method === 'POST') {
     try {
-      const { name, category, keywords } = req.body;
+      const { name, category, keywords, excludeKeywords } = req.body;
       if (!name || !category) return res.status(400).json({ error: 'name and category are required' });
 
-      const [tags, categories] = await Promise.all([getTagsFromConfig(), getCategoriesFromConfig()]);
+      const tags = await getTagsFromConfig();
       const id = slugify(name) || `tag-${Date.now()}`;
 
       if (tags.some(t => t.id === id)) {
         return res.status(409).json({ error: `Tag with id "${id}" already exists` });
       }
 
-      const newTag: TagSpec = { id, name: name.trim(), category, keywords: keywords ?? [] };
+      const newTag: TagSpec = { id, name: name.trim(), category, keywords: keywords ?? [], ...(excludeKeywords !== undefined && { excludeKeywords }) };
       await updateEdgeConfigKey('tags', [...tags, newTag]);
-      // Ensure categories are persisted too
-      if (categories === DEFAULT_CATEGORIES) await updateEdgeConfigKey('categories', DEFAULT_CATEGORIES);
       return res.status(201).json(newTag);
     } catch (e: any) {
       return res.status(500).json({ error: e.message });

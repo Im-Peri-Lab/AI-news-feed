@@ -1,6 +1,25 @@
 import Parser from 'rss-parser';
 import crypto from 'crypto';
-import { DEFAULT_TAGS as TAGS } from '../lib/apiConstants.js';
+import { type TagSpec } from '../lib/apiConstants.js';
+
+function getEdgeConfigId(): string {
+  const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
+  return match ? match[0] : '';
+}
+
+async function getTags(): Promise<TagSpec[]> {
+  const edgeConfigId = getEdgeConfigId();
+  const token = process.env.VERCEL_API_TOKEN;
+  if (!edgeConfigId || !token) throw new Error('Edge Config not configured');
+  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/item/tags`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Edge Config read failed: ${res.status}`);
+  const data = await res.json();
+  const tags = data?.value as TagSpec[] | null;
+  if (!tags) throw new Error('No tags found in Edge Config');
+  return tags;
+}
 
 const SEARCH_QUERIES = [
   '(AI OR 인공지능 OR "생성형 AI") when:7d',
@@ -27,7 +46,13 @@ function generateId(url: string) {
   return crypto.createHash('md5').update(url).digest('hex');
 }
 
-function processArticle(item: any) {
+function isExactMatch(title: string, keyword: string): boolean {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(?<![a-zA-Z0-9가-힣])${escaped}(?![a-zA-Z0-9가-힣])`, 'i');
+  return regex.test(title);
+}
+
+function processArticle(item: any, tagSpecs: TagSpec[]) {
   let title = item.title || '';
   let source = item.creator || item.author || 'AI News';
 
@@ -50,10 +75,11 @@ function processArticle(item: any) {
   const categories: string[] = [];
   const matchedTerms: string[] = [];
 
-  TAGS.forEach(tag => {
-    const isMatched = tag.keywords.some(keyword =>
-      title.toLowerCase().includes(keyword.toLowerCase())
-    );
+  tagSpecs.forEach(tag => {
+    const hasExactMatch = tag.keywords.some(kw => isExactMatch(title, kw));
+    const hasPartialMatch = !hasExactMatch && tag.keywords.some(kw => title.toLowerCase().includes(kw.toLowerCase()));
+    const isExcluded = (tag.excludeKeywords ?? []).some(kw => title.toLowerCase().includes(kw.toLowerCase()));
+    const isMatched = hasExactMatch || (hasPartialMatch && !isExcluded);
     if (isMatched) {
       if (!tags.includes(tag.name)) tags.push(tag.name);
       if (!categories.includes(tag.category)) categories.push(tag.category);
@@ -119,7 +145,10 @@ async function fetchWithRetry(query: string, retries = 2, backoff = 2000): Promi
 }
 
 async function fetchAllNews(): Promise<any[]> {
-  const results = await Promise.allSettled(SEARCH_QUERIES.map(q => fetchWithRetry(q)));
+  const [tagSpecs, results] = await Promise.all([
+    getTags(),
+    Promise.allSettled(SEARCH_QUERIES.map(q => fetchWithRetry(q))),
+  ]);
 
   const seenIds = new Set<string>();
   const articles: any[] = [];
@@ -128,7 +157,7 @@ async function fetchAllNews(): Promise<any[]> {
     if (result.status !== 'fulfilled') continue;
     for (const item of result.value) {
       if (!item.link) continue;
-      const article = processArticle(item);
+      const article = processArticle(item, tagSpecs);
       if (!seenIds.has(article.id)) {
         seenIds.add(article.id);
         articles.push(article);

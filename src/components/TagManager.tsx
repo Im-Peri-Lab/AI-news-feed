@@ -76,6 +76,8 @@ export default function TagManager({ onClose }: TagManagerProps) {
   const [addCategory, setAddCategory] = useState(categories[0]?.name ?? '');
   const [addKeywords, setAddKeywords] = useState<string[]>([]);
   const [addKwInput, setAddKwInput] = useState('');
+  const [addExcludeKeywords, setAddExcludeKeywords] = useState<string[]>([]);
+  const [addExKwInput, setAddExKwInput] = useState('');
 
   // --- Tag edit state ---
   const [editTagId, setEditTagId] = useState<string | null>(null);
@@ -83,6 +85,8 @@ export default function TagManager({ onClose }: TagManagerProps) {
   const [editCategory, setEditCategory] = useState('');
   const [editKeywords, setEditKeywords] = useState<string[]>([]);
   const [editKwInput, setEditKwInput] = useState('');
+  const [editExcludeKeywords, setEditExcludeKeywords] = useState<string[]>([]);
+  const [editExKwInput, setEditExKwInput] = useState('');
 
   // --- Category add form ---
   const [showAddCatForm, setShowAddCatForm] = useState(false);
@@ -205,13 +209,19 @@ export default function TagManager({ onClose }: TagManagerProps) {
     setAddKwInput('');
   }
   function onAddKwKey(e: KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); pushAddKw(); } }
+  function pushAddExKw() {
+    const kw = addExKwInput.trim();
+    if (kw && !addExcludeKeywords.includes(kw)) setAddExcludeKeywords(prev => [...prev, kw]);
+    setAddExKwInput('');
+  }
+  function onAddExKwKey(e: KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); pushAddExKw(); } }
 
   async function handleAddTag() {
     if (busy || !addName.trim() || !addCategory) return;
-    const created = await run('add-tag', () => createTag({ name: addName.trim(), category: addCategory, keywords: addKeywords }));
+    const created = await run('add-tag', () => createTag({ name: addName.trim(), category: addCategory, keywords: addKeywords, excludeKeywords: addExcludeKeywords }));
     if (created) {
       mutateTags(prev => prev.some(t => t.id === created.id) ? prev : [...prev, created]);
-      setAddName(''); setAddKeywords([]); setAddKwInput(''); setShowAddForm(false);
+      setAddName(''); setAddKeywords([]); setAddKwInput(''); setAddExcludeKeywords([]); setAddExKwInput(''); setShowAddForm(false);
     }
   }
 
@@ -220,6 +230,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
     const t = tags.find(t => t.id === id);
     if (!t) return;
     setEditTagId(id); setEditName(t.name); setEditCategory(t.category); setEditKeywords([...t.keywords]); setEditKwInput('');
+    setEditExcludeKeywords([...(t.excludeKeywords ?? [])]); setEditExKwInput('');
   }
   function pushEditKw() {
     const kw = editKwInput.trim();
@@ -227,10 +238,16 @@ export default function TagManager({ onClose }: TagManagerProps) {
     setEditKwInput('');
   }
   function onEditKwKey(e: KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); pushEditKw(); } }
+  function pushEditExKw() {
+    const kw = editExKwInput.trim();
+    if (kw && !editExcludeKeywords.includes(kw)) setEditExcludeKeywords(prev => [...prev, kw]);
+    setEditExKwInput('');
+  }
+  function onEditExKwKey(e: KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); pushEditExKw(); } }
 
   async function handleSaveTag() {
     if (busy || !editTagId) return;
-    const updated = await run(`save-tag:${editTagId}`, () => updateTag(editTagId, { name: editName.trim(), category: editCategory, keywords: editKeywords }));
+    const updated = await run(`save-tag:${editTagId}`, () => updateTag(editTagId, { name: editName.trim(), category: editCategory, keywords: editKeywords, excludeKeywords: editExcludeKeywords }));
     if (updated) {
       mutateTags(prev => prev.map(t => t.id === editTagId ? updated : t));
       setEditTagId(null);
@@ -325,7 +342,7 @@ export default function TagManager({ onClose }: TagManagerProps) {
                 </button>
               ) : (
                 <div className="relative border border-brand/25 bg-brand-light/20 dark:bg-gray-800 rounded-xl p-4">
-                  <div className={cn("space-y-3", spinnerKey === 'add-tag' && DIM_CLS)}>
+                  <div className={cn("space-y-2", spinnerKey === 'add-tag' && DIM_CLS)}>
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] font-black text-brand uppercase tracking-wider">새 태그 추가</p>
                       <button
@@ -340,15 +357,32 @@ export default function TagManager({ onClose }: TagManagerProps) {
                         placeholder="태그명" className={cn(INPUT_CLS, "flex-1 min-w-0")} autoFocus />
                       <CategorySelect value={addCategory} onChange={setAddCategory} options={categories} />
                     </div>
-                    <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
-                      {addKeywords.map(kw => (
-                        <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
-                          {kw}
-                          <button onClick={() => setAddKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
-                        </span>
-                      ))}
-                      <input value={addKwInput} onChange={e => setAddKwInput(e.target.value)} onKeyDown={onAddKwKey} onBlur={pushAddKw}
-                        placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">매핑 키워드</p>
+                      <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
+                        {addKeywords.map(kw => (
+                          <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
+                            {kw}
+                            <button onClick={() => setAddKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
+                          </span>
+                        ))}
+                        <input value={addKwInput} onChange={e => setAddKwInput(e.target.value)} onKeyDown={onAddKwKey} onBlur={pushAddKw}
+                          placeholder="매핑 키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                      </div>
+                    </div>
+                    <div className="border-t border-gray-100 dark:border-gray-700" />
+                    <div className="-mb-1">
+                      <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">제외 키워드</p>
+                      <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
+                        {addExcludeKeywords.map(kw => (
+                          <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1 !bg-red-50 dark:!bg-red-900/20 !text-red-500 dark:!text-red-400")}>
+                            {kw}
+                            <button onClick={() => setAddExcludeKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-700"><X className="w-2.5 h-2.5" /></button>
+                          </span>
+                        ))}
+                        <input value={addExKwInput} onChange={e => setAddExKwInput(e.target.value)} onKeyDown={onAddExKwKey} onBlur={pushAddExKw}
+                          placeholder="제외 키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-red-200 dark:border-red-800 rounded bg-transparent outline-none focus:border-red-400 min-w-[140px]" />
+                      </div>
                     </div>
                     <div className="flex justify-end">
                       <button onClick={handleAddTag} disabled={busy || !addName.trim()}
@@ -394,15 +428,32 @@ export default function TagManager({ onClose }: TagManagerProps) {
                                     placeholder="태그명" className={cn(INPUT_CLS, "flex-1 min-w-0")} />
                                   <CategorySelect value={editCategory} onChange={setEditCategory} options={categories} />
                                 </div>
-                                <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
-                                  {editKeywords.map(kw => (
-                                    <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
-                                      {kw}
-                                      <button onClick={() => setEditKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
-                                    </span>
-                                  ))}
-                                  <input value={editKwInput} onChange={e => setEditKwInput(e.target.value)} onKeyDown={onEditKwKey} onBlur={pushEditKw}
-                                    placeholder="키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                                <div>
+                                  <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">매핑 키워드</p>
+                                  <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
+                                    {editKeywords.map(kw => (
+                                      <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1")}>
+                                        {kw}
+                                        <button onClick={() => setEditKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
+                                      </span>
+                                    ))}
+                                    <input value={editKwInput} onChange={e => setEditKwInput(e.target.value)} onKeyDown={onEditKwKey} onBlur={pushEditKw}
+                                      placeholder="매핑 키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-gray-300 dark:border-gray-600 rounded bg-transparent outline-none focus:border-brand min-w-[120px]" />
+                                  </div>
+                                </div>
+                                <div className="border-t border-gray-100 dark:border-gray-700" />
+                                <div className="-mb-1">
+                                  <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">제외 키워드</p>
+                                  <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
+                                    {editExcludeKeywords.map(kw => (
+                                      <span key={kw} className={cn(KEYWORD_CHIP_CLS, "inline-flex items-center gap-1 !bg-red-50 dark:!bg-red-900/20 !text-red-500 dark:!text-red-400")}>
+                                        {kw}
+                                        <button onClick={() => setEditExcludeKeywords(p => p.filter(k => k !== kw))} className="hover:text-red-700"><X className="w-2.5 h-2.5" /></button>
+                                      </span>
+                                    ))}
+                                    <input value={editExKwInput} onChange={e => setEditExKwInput(e.target.value)} onKeyDown={onEditExKwKey} onBlur={pushEditExKw}
+                                      placeholder="제외 키워드 입력 후 Enter" className="px-2 py-0.5 text-xs border border-dashed border-red-200 dark:border-red-800 rounded bg-transparent outline-none focus:border-red-400 min-w-[140px]" />
+                                  </div>
                                 </div>
                                 <div className="flex gap-2 justify-end">
                                   <button onClick={() => setEditTagId(null)} disabled={busy} className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-50">취소</button>

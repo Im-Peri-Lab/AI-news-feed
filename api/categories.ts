@@ -1,13 +1,4 @@
-import { get } from '@vercel/edge-config';
-
-interface CategoryDef { id: string; name: string; color: { bg: string; text: string; border: string }; }
-
-const DEFAULT_CATEGORIES: CategoryDef[] = [
-  { id: 'tech', name: '기술', color: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-100' } },
-  { id: 'model', name: '모델', color: { bg: 'bg-brand-light', text: 'text-brand', border: 'border-brand/20' } },
-  { id: 'global', name: '글로벌', color: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-100' } },
-  { id: 'domestic', name: '국내', color: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100' } },
-];
+import { type CategoryDef } from '../lib/apiConstants.js';
 
 const COLOR_PALETTE = [
   { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-100' },
@@ -39,7 +30,17 @@ async function updateEdgeConfigKey(key: string, value: unknown): Promise<void> {
 }
 
 async function getCategoriesFromConfig(): Promise<CategoryDef[]> {
-  try { return (await get<CategoryDef[]>('categories')) ?? DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; }
+  const edgeConfigId = getEdgeConfigId();
+  const token = process.env.VERCEL_API_TOKEN;
+  if (!edgeConfigId || !token) throw new Error('Edge Config not configured');
+  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/item/categories`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Edge Config read failed: ${res.status}`);
+  const data = await res.json();
+  const categories = data?.value as CategoryDef[] | null;
+  if (!categories) throw new Error('No categories found in Edge Config');
+  return categories;
 }
 
 function slugify(name: string): string {

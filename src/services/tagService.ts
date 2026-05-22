@@ -13,11 +13,11 @@ async function request(url: string, method: string, body?: unknown) {
   return res.json();
 }
 
-export async function createTag(data: { name: string; category: string; keywords: string[] }): Promise<TagSpec> {
+export async function createTag(data: { name: string; category: string; keywords: string[]; excludeKeywords?: string[] }): Promise<TagSpec> {
   return request('/api/tags', 'POST', data);
 }
 
-export async function updateTag(id: string, data: Partial<{ name: string; category: string; keywords: string[] }>): Promise<TagSpec> {
+export async function updateTag(id: string, data: Partial<{ name: string; category: string; keywords: string[]; excludeKeywords: string[] }>): Promise<TagSpec> {
   return request(`/api/tags/${id}`, 'PUT', data);
 }
 
