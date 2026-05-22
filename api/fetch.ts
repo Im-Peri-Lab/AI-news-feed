@@ -23,18 +23,6 @@ async function getTags(): Promise<TagSpec[]> {
   return tags;
 }
 
-const SEARCH_QUERIES = [
-  '(AI OR 인공지능 OR "생성형 AI") when:7d',
-  '(LLM OR "AI 에이전트" OR "AI 반도체" OR AX) when:7d',
-];
-
-const USER_AGENTS = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
-];
-
 function getKstDateStr(date: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
@@ -44,6 +32,26 @@ function getKstDateStr(date: Date): string {
   }).format(date);
 }
 
+function getKstNextDateStr(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + 1));
+  return next.toISOString().slice(0, 10);
+}
+
+function buildSearchQueries(dateStr: string, nextDateStr: string): string[] {
+  return [
+    `(AI OR 인공지능) after:${dateStr} before:${nextDateStr}`,
+    `(생성형 AI OR LLM OR AI 에이전트 OR AI 반도체) after:${dateStr} before:${nextDateStr}`,
+  ];
+}
+
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+];
+
 function generateId(url: string) {
   return crypto.createHash('md5').update(url).digest('hex');
 }
@@ -52,6 +60,14 @@ function isExactMatch(title: string, keyword: string): boolean {
   const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp(`(?<![a-zA-Z0-9가-힣])${escaped}(?![a-zA-Z0-9가-힣])`, 'i');
   return regex.test(title);
+}
+
+function normalizeTitle(title: string): string {
+  return title
+    .replace(/<[^>]+>/g, '')       // HTML 태그 제거
+    .replace(/[^가-힣a-zA-Z0-9]/g, '') // 특수문자·공백 제거
+    .toLowerCase()
+    .slice(0, 30);
 }
 
 function processArticle(item: any, tagSpecs: TagSpec[]) {
@@ -146,24 +162,137 @@ async function fetchWithRetry(query: string, retries = 2, backoff = 2000): Promi
   return [];
 }
 
+// Naver News API
+
+interface NaverNewsItem {
+  title: string;
+  link: string;
+  originallink: string;
+  pubDate: string;
+}
+
+interface NaverNewsResponse {
+  items: NaverNewsItem[];
+}
+
+function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
+async function fetchNaverNews(query: string, targetDateStr: string): Promise<any[]> {
+  const clientId = process.env.NAVER_CLIENT_ID;
+  const clientSecret = process.env.NAVER_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return [];
+
+  const params = new URLSearchParams({ query, display: '100', sort: 'date' });
+  try {
+    const response = await fetch(
+      `https://openapi.naver.com/v1/search/news.json?${params}`,
+      {
+        headers: {
+          'X-Naver-Client-Id': clientId,
+          'X-Naver-Client-Secret': clientSecret,
+        },
+      }
+    );
+    if (!response.ok) {
+      console.error(`Naver API error: ${response.status}`);
+      return [];
+    }
+    const data = await response.json() as NaverNewsResponse;
+    return (data.items ?? []).filter(item => {
+      const pubDate = new Date(item.pubDate);
+      return !Number.isNaN(pubDate.getTime()) && getKstDateStr(pubDate) === targetDateStr;
+    });
+  } catch (e: any) {
+    console.error(`Naver fetch error for "${query}":`, e.message || e);
+    return [];
+  }
+}
+
+function processNaverItem(item: NaverNewsItem, tagSpecs: TagSpec[]) {
+  const rawTitle = item.title.replace(/<[^>]+>/g, '').trim();
+  const url = item.link || item.originallink || '';
+  const source = extractDomain(item.originallink || item.link || '');
+  const pubDate = new Date(item.pubDate);
+  const safePubDate = Number.isNaN(pubDate.getTime()) ? new Date() : pubDate;
+
+  const tags: string[] = [];
+  const categories: string[] = [];
+  const matchedTerms: string[] = [];
+
+  tagSpecs.forEach(tag => {
+    const hasExactMatch = tag.keywords.some(kw => isExactMatch(rawTitle, kw));
+    const hasPartialMatch = !hasExactMatch && tag.keywords.some(kw => rawTitle.toLowerCase().includes(kw.toLowerCase()));
+    const isExcluded = (tag.excludeKeywords ?? []).some(kw => rawTitle.toLowerCase().includes(kw.toLowerCase()));
+    const isMatched = hasExactMatch || (hasPartialMatch && !isExcluded);
+    if (isMatched) {
+      if (!tags.includes(tag.name)) tags.push(tag.name);
+      if (!categories.includes(tag.category)) categories.push(tag.category);
+      matchedTerms.push(tag.name);
+    }
+  });
+
+  return {
+    id: generateId(url),
+    title: rawTitle,
+    url,
+    imageUrl: '',
+    source,
+    publishedAt: safePubDate.toISOString(),
+    publishedDate: getKstDateStr(safePubDate),
+    tags,
+    categories,
+    matchedTerms,
+    collector: 'naver_news_api',
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
 async function fetchAllNews(): Promise<any[]> {
-  const [tagSpecs, results] = await Promise.all([
+  const now = new Date();
+  const dateStr = getKstDateStr(now);
+  const nextDateStr = getKstNextDateStr(dateStr);
+  const searchQueries = buildSearchQueries(dateStr, nextDateStr);
+
+  const [tagSpecs, googleResults, naverResults] = await Promise.all([
     getTags(),
-    Promise.allSettled(SEARCH_QUERIES.map(q => fetchWithRetry(q))),
+    Promise.allSettled(searchQueries.map(q => fetchWithRetry(q))),
+    Promise.allSettled([
+      fetchNaverNews('AI 인공지능', dateStr),
+      fetchNaverNews('생성형AI LLM', dateStr),
+    ]),
   ]);
 
   const seenIds = new Set<string>();
+  const seenTitles = new Set<string>();
   const articles: any[] = [];
 
-  for (const result of results) {
+  function addArticle(article: ReturnType<typeof processArticle>) {
+    const titleKey = normalizeTitle(article.title);
+    if (seenIds.has(article.id) || seenTitles.has(titleKey)) return;
+    seenIds.add(article.id);
+    seenTitles.add(titleKey);
+    articles.push(article);
+  }
+
+  for (const result of googleResults) {
     if (result.status !== 'fulfilled') continue;
     for (const item of result.value) {
       if (!item.link) continue;
-      const article = processArticle(item, tagSpecs);
-      if (!seenIds.has(article.id)) {
-        seenIds.add(article.id);
-        articles.push(article);
-      }
+      addArticle(processArticle(item, tagSpecs));
+    }
+  }
+
+  for (const result of naverResults) {
+    if (result.status !== 'fulfilled') continue;
+    for (const item of result.value) {
+      if (!item.link && !item.originallink) continue;
+      addArticle(processNaverItem(item as NaverNewsItem, tagSpecs));
     }
   }
 
