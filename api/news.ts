@@ -276,10 +276,9 @@ export default async function handler(req: any, res: any) {
     const targetDate = typeof req.query.date === 'string' ? req.query.date : todayKst;
     const isToday = targetDate === todayKst;
 
-    // For today, widen by ±1 day to cover the 9-hour KST/UTC boundary gap,
-    // then post-filter by publishedDate. For past dates the boundary issue is
-    // irrelevant, so use the exact date range to avoid crowding out the target.
-    const afterDate = isToday ? getKstOffsetDateStr(targetDate, -1) : targetDate;
+    // Google RSS after/before are UTC boundaries. KST 00:00–08:59 = UTC previous
+    // day, so always widen after by -1 day and post-filter by publishedDate (KST).
+    const afterDate = getKstOffsetDateStr(targetDate, -1);
     const beforeDate = getKstOffsetDateStr(targetDate, +1);
     const googleQueries = BASE_QUERIES.map(q => `${q} after:${afterDate} before:${beforeDate}`);
 
