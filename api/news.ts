@@ -30,9 +30,12 @@ const parser = new Parser({
   },
 });
 
+// Google RSS after/before are interpreted as UTC boundaries, so KST 00:00–08:59
+// would fall outside after:dateStr. Widen the window by one day on each side and
+// filter to KST dateStr after parsing.
 const BASE_QUERIES = [
-  '(AI OR 인공지능 OR "생성형 AI")',
-  '(LLM OR "AI 에이전트" OR "AI 반도체" OR AX)',
+  '(AI OR 인공지능)',
+  '(생성형 AI OR LLM OR AI 에이전트 OR AI 반도체)',
 ];
 
 const USER_AGENTS = [
@@ -51,12 +54,12 @@ function getKstDateStr(date: Date): string {
   }).format(date);
 }
 
-function daysAgoFromToday(targetDate: string, todayKst: string): number {
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const t = new Date(targetDate + 'T00:00:00+09:00').getTime();
-  const n = new Date(todayKst + 'T00:00:00+09:00').getTime();
-  return Math.max(0, Math.round((n - t) / msPerDay));
+function getKstOffsetDateStr(dateStr: string, offsetDays: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + offsetDays));
+  return next.toISOString().slice(0, 10);
 }
+
 
 function generateId(url: string) {
   return crypto.createHash('md5').update(url).digest('hex');
@@ -66,6 +69,14 @@ function isExactMatch(title: string, keyword: string): boolean {
   const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp(`(?<![a-zA-Z0-9가-힣])${escaped}(?![a-zA-Z0-9가-힣])`, 'i');
   return regex.test(title);
+}
+
+function normalizeTitle(title: string): string {
+  return title
+    .replace(/<[^>]+>/g, '')
+    .replace(/[^가-힣a-zA-Z0-9]/g, '')
+    .toLowerCase()
+    .slice(0, 30);
 }
 
 function processArticle(item: any, TAGS: TagSpec[]) {
@@ -164,25 +175,95 @@ async function fetchWithRetry(query: string, retries = 2, backoff = 2000): Promi
   return [];
 }
 
-async function fetchAllNews(queries: string[], tags: TagSpec[]): Promise<any[]> {
-  const results = await Promise.allSettled(queries.map(q => fetchWithRetry(q)));
+// Naver News API
 
-  const seenIds = new Set<string>();
-  const articles: any[] = [];
+interface NaverNewsItem {
+  title: string;
+  link: string;
+  originallink: string;
+  pubDate: string;
+}
 
-  for (const result of results) {
-    if (result.status !== 'fulfilled') continue;
-    for (const item of result.value) {
-      if (!item.link) continue;
-      const article = processArticle(item, tags);
-      if (!seenIds.has(article.id)) {
-        seenIds.add(article.id);
-        articles.push(article);
-      }
-    }
+interface NaverNewsResponse {
+  items: NaverNewsItem[];
+}
+
+function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
   }
+}
 
-  return articles;
+async function fetchNaverNews(query: string, targetDateStr: string): Promise<NaverNewsItem[]> {
+  const clientId = process.env.NAVER_CLIENT_ID;
+  const clientSecret = process.env.NAVER_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return [];
+
+  const params = new URLSearchParams({ query, display: '100', sort: 'date' });
+  try {
+    const response = await fetch(
+      `https://openapi.naver.com/v1/search/news.json?${params}`,
+      {
+        headers: {
+          'X-Naver-Client-Id': clientId,
+          'X-Naver-Client-Secret': clientSecret,
+        },
+      }
+    );
+    if (!response.ok) {
+      console.error(`Naver API error: ${response.status}`);
+      return [];
+    }
+    const data = await response.json() as NaverNewsResponse;
+    return (data.items ?? []).filter(item => {
+      const pubDate = new Date(item.pubDate);
+      return !Number.isNaN(pubDate.getTime()) && getKstDateStr(pubDate) === targetDateStr;
+    });
+  } catch (e: any) {
+    console.error(`Naver fetch error for "${query}":`, e.message || e);
+    return [];
+  }
+}
+
+function processNaverItem(item: NaverNewsItem, tagSpecs: TagSpec[]) {
+  const rawTitle = item.title.replace(/<[^>]+>/g, '').trim();
+  const url = item.link || item.originallink || '';
+  const source = extractDomain(item.originallink || item.link || '');
+  const pubDate = new Date(item.pubDate);
+  const safePubDate = Number.isNaN(pubDate.getTime()) ? new Date() : pubDate;
+
+  const tags: string[] = [];
+  const categories: string[] = [];
+  const matchedTerms: string[] = [];
+
+  tagSpecs.forEach(tag => {
+    const hasExactMatch = tag.keywords.some(kw => isExactMatch(rawTitle, kw));
+    const hasPartialMatch = !hasExactMatch && tag.keywords.some(kw => rawTitle.toLowerCase().includes(kw.toLowerCase()));
+    const isExcluded = (tag.excludeKeywords ?? []).some(kw => rawTitle.toLowerCase().includes(kw.toLowerCase()));
+    const isMatched = hasExactMatch || (hasPartialMatch && !isExcluded);
+    if (isMatched) {
+      if (!tags.includes(tag.name)) tags.push(tag.name);
+      if (!categories.includes(tag.category)) categories.push(tag.category);
+      matchedTerms.push(tag.name);
+    }
+  });
+
+  return {
+    id: generateId(url),
+    title: rawTitle,
+    url,
+    imageUrl: '',
+    source,
+    publishedAt: safePubDate.toISOString(),
+    publishedDate: getKstDateStr(safePubDate),
+    tags,
+    categories,
+    matchedTerms,
+    collector: 'naver_news_api',
+    fetchedAt: new Date().toISOString(),
+  };
 }
 
 export default async function handler(req: any, res: any) {
@@ -193,59 +274,83 @@ export default async function handler(req: any, res: any) {
   try {
     const todayKst = getKstDateStr(new Date());
     const targetDate = typeof req.query.date === 'string' ? req.query.date : todayKst;
+    const isToday = targetDate === todayKst;
 
-    const daysAgo = daysAgoFromToday(targetDate, todayKst);
-
-    // Google News RSS only reliably supports when:1d and when:7d.
-    // Intermediate values like when:2d over-include the previous day, shrinking
-    // today's result set (see commit 963b49a). The publishedDate===targetDate
-    // filter below narrows when:7d to the requested past date.
-    const dateParam = daysAgo === 0 ? 'when:1d' : 'when:7d';
-
-    const queries = BASE_QUERIES.map(q => `${q} ${dateParam}`);
+    // Google RSS after/before are UTC boundaries. KST 00:00–08:59 = UTC previous
+    // day, so always widen after by -1 day and post-filter by publishedDate (KST).
+    const afterDate = getKstOffsetDateStr(targetDate, -1);
+    const beforeDate = getKstOffsetDateStr(targetDate, +1);
+    const googleQueries = BASE_QUERIES.map(q => `${q} after:${afterDate} before:${beforeDate}`);
 
     const tags = await getTagsFromConfig();
-    const articles = await fetchAllNews(queries, tags);
 
-    const filtered = articles
+    const [googleResults, naverResults] = await Promise.all([
+      Promise.allSettled(googleQueries.map(q => fetchWithRetry(q))),
+      // Naver sort=date only returns recent 100 items — only useful for today
+      isToday
+        ? Promise.allSettled([
+            fetchNaverNews('AI 인공지능', targetDate),
+            fetchNaverNews('생성형AI LLM', targetDate),
+          ])
+        : Promise.resolve([]),
+    ]);
+
+    const seenIds = new Set<string>();
+    const seenTitles = new Set<string>();
+    const all: any[] = [];
+
+    function addArticle(article: ReturnType<typeof processArticle>) {
+      const titleKey = normalizeTitle(article.title);
+      if (seenIds.has(article.id) || seenTitles.has(titleKey)) return;
+      seenIds.add(article.id);
+      seenTitles.add(titleKey);
+      all.push(article);
+    }
+
+    const googleRaw = googleResults.map(r => r.status === 'fulfilled' ? r.value.length : 0);
+    for (const result of googleResults) {
+      if (result.status !== 'fulfilled') continue;
+      for (const item of result.value) {
+        if (!item.link) continue;
+        addArticle(processArticle(item, tags));
+      }
+    }
+    const googleAfterDedup = all.length;
+
+    const naverRaw = naverResults.map((r: any) => r.status === 'fulfilled' ? r.value.length : 0);
+    for (const result of naverResults) {
+      if (result.status !== 'fulfilled') continue;
+      for (const item of result.value) {
+        if (!item.link && !(item as NaverNewsItem).originallink) continue;
+        addArticle(processNaverItem(item as NaverNewsItem, tags));
+      }
+    }
+
+    const beforeDedup = (googleRaw.reduce((a: number, b: number) => a + b, 0)) + (naverRaw.reduce((a: number, b: number) => a + b, 0));
+    const filtered = all
       .filter(a => a.publishedDate === targetDate)
       .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
-    // Debug: log articles excluded by the date filter so timezone issues are visible
-    const excluded = articles.filter(a => a.publishedDate !== targetDate);
-    if (excluded.length > 0) {
-      console.log(
-        `[api/news] date-filter excluded ${excluded.length} articles` +
-        ` (targetDate=${targetDate}, totalFetched=${articles.length}, shown=${filtered.length})`
-      );
-      excluded.slice(0, 10).forEach(a =>
-        console.log(
-          `[api/news]   EXCLUDED publishedDate=${a.publishedDate}` +
-          ` pubISO=${a.publishedAt} title="${a.title.slice(0, 60)}"`
-        )
-      );
-    }
-
-    const dateSample = [...new Set(articles.map(a => a.publishedDate))].sort();
-    const excludedDates = Object.fromEntries(
-      dateSample
-        .filter(d => d !== targetDate)
-        .map(d => [d, articles.filter(a => a.publishedDate === d).length])
-    );
+    const googleAfterDateFilter = all.filter(a => a.collector === 'google_news_rss' && a.publishedDate === targetDate).length;
+    const naverAfterDateFilter = all.filter(a => a.collector === 'naver_news_api' && a.publishedDate === targetDate).length;
 
     res.json({
       total: filtered.length,
       articles: filtered,
-      _debug: {
-        todayKst,
-        targetDate,
-        daysAgo,
-        dateParam,
-        totalFetched: articles.length,
-        shown: filtered.length,
-        excludedByDateFilter: excluded.length,
-        excludedDates,
-        datesInRss: dateSample,
+      stats: {
+        google: {
+          query1Raw: googleRaw[0] ?? 0,
+          query2Raw: googleRaw[1] ?? 0,
+          afterDateFilter: googleAfterDateFilter,
+        },
+        naver: {
+          query1Raw: naverRaw[0] ?? 0,
+          query2Raw: naverRaw[1] ?? 0,
+          afterDateFilter: naverAfterDateFilter,
+        },
+        beforeDedup,
+        afterGoogleDedup: googleAfterDedup,
+        finalTotal: filtered.length,
       },
     });
   } catch (e: any) {
