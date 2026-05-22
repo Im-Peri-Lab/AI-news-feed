@@ -1,195 +1,69 @@
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
+
 import express from 'express';
 import path from 'path';
-import Parser from 'rss-parser';
-import crypto from 'crypto';
-import { format } from 'date-fns';
 import { GoogleGenAI } from '@google/genai';
+import {
+  getTags,
+  getKstDateStr,
+  getKstOffsetDateStr,
+  processArticle,
+  fetchWithRetry,
+  fetchNaverNews,
+  processNaverItem,
+  makeDeduper,
+  type NaverNewsItem,
+} from './lib/newsUtils.js';
 
 const app = express();
-const parser = new Parser();
 
-interface TagSpec { id: string; name: string; category: string; keywords: string[]; excludeKeywords?: string[]; }
-
-function getEdgeConfigId(): string {
-  const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
-  return match ? match[0] : '';
-}
-
-async function getTagsFromDB(): Promise<TagSpec[]> {
-  const edgeConfigId = getEdgeConfigId();
-  const token = process.env.VERCEL_API_TOKEN;
-  if (!edgeConfigId || !token) throw new Error('Edge Config not configured');
-  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/item/tags`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error(`Edge Config read failed: ${res.status}`);
-  const data = await res.json();
-  const tags = data?.value as TagSpec[] | null;
-  if (!tags) throw new Error('No tags found in Edge Config');
-  return tags;
-}
-
-const SEARCH_QUERIES = [
-  '(AI OR 인공지능 OR "생성형 AI") when:1d',
-  '(LLM OR "AI 에이전트" OR "AI 반도체" OR AX) when:1d'
+const GOOGLE_QUERIES = [
+  '(AI OR 인공지능)',
+  '(생성형 AI OR LLM OR AI 에이전트 OR AI 반도체)',
 ];
 
-// In-memory store (PRD suggests Sheets, but for this environment we use a variable)
-let articleStore: any[] = [];
+async function fetchNews(targetDate: string): Promise<any[]> {
+  const afterDate = getKstOffsetDateStr(targetDate, -1);
+  const beforeDate = getKstOffsetDateStr(targetDate, +1);
+  const googleQueries = GOOGLE_QUERIES.map(q => `${q} after:${afterDate} before:${beforeDate}`);
+  const isToday = targetDate === getKstDateStr(new Date());
 
-const USER_AGENTS = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1'
-];
+  const [tagSpecs, googleResults, naverResults] = await Promise.all([
+    getTags(),
+    Promise.allSettled(googleQueries.map(q => fetchWithRetry(q))),
+    isToday
+      ? Promise.allSettled([
+          fetchNaverNews('AI 인공지능', targetDate),
+          fetchNaverNews('생성형AI LLM', targetDate),
+        ])
+      : Promise.resolve([]),
+  ]);
 
-function generateId(url: string) {
-  return crypto.createHash('md5').update(url).digest('hex');
-}
+  const addArticle = makeDeduper();
+  const articles: any[] = [];
 
-function isExactMatch(title: string, keyword: string): boolean {
-  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(?<![a-zA-Z0-9가-힣])${escaped}(?![a-zA-Z0-9가-힣])`, 'i');
-  return regex.test(title);
-}
-
-function processArticle(item: any, tagSpecs: TagSpec[]) {
-  let title = item.title || '';
-  let source = item.creator || item.author || 'AI News';
-  
-  // Google News RSS titles usually end with " - Source Name"
-  const sourceMatch = title.match(/(.*) - (.*)$/);
-  if (sourceMatch) {
-    title = sourceMatch[1].trim();
-    source = sourceMatch[2].trim();
-  }
-
-  const url = item.link || '';
-  const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
-  const safePubDate = Number.isNaN(pubDate.getTime()) ? new Date() : pubDate;
-  const isoDate = safePubDate.toISOString();
-  const dateString = format(safePubDate, 'yyyy-MM-dd');
-
-  const tags: string[] = [];
-  const categories: string[] = [];
-  const matchedTerms: string[] = [];
-
-  tagSpecs.forEach(tag => {
-    const hasExactMatch = tag.keywords.some(kw => isExactMatch(title, kw));
-    const hasPartialMatch = !hasExactMatch && tag.keywords.some(kw => title.toLowerCase().includes(kw.toLowerCase()));
-    const isExcluded = (tag.excludeKeywords ?? []).some(kw => title.toLowerCase().includes(kw.toLowerCase()));
-    const isMatched = hasExactMatch || (hasPartialMatch && !isExcluded);
-    if (isMatched) {
-      if (!tags.includes(tag.name)) tags.push(tag.name);
-      if (!categories.includes(tag.category)) categories.push(tag.category);
-      matchedTerms.push(tag.name);
-    }
-  });
-
-  return {
-    id: generateId(url),
-    title,
-    url,
-    source,
-    publishedAt: isoDate,
-    publishedDate: dateString,
-    tags,
-    categories,
-    matchedTerms,
-    collector: 'google_news_rss',
-    fetchedAt: new Date().toISOString()
-  };
-}
-
-async function delay(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function fetchWithRetry(query: string, retries = 3, backoff = 5000) {
-  // Add timestamp to bypass Google's server-side cache and get fresh results each request
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko&_t=${Date.now()}`;
-
-  for (let i = 0; i < retries; i++) {
-    try {
-      const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-      const response = await fetch(url, {
-        cache: 'no-store',
-        headers: {
-          'User-Agent': userAgent,
-          'Accept': 'application/rss+xml, application/xml;q=0.9, */*;q=0.8',
-          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
-        }
-      });
-
-      if (!response.ok) {
-        if (response.status === 503 || response.status === 429) {
-          throw new Error(`Status ${response.status}`);
-        }
-        console.error(`Fetch error for ${query}: ${response.status} ${response.statusText}`);
-        return [];
-      }
-
-      const xml = await response.text();
-      const feed = await parser.parseString(xml);
-      return feed.items;
-    } catch (e: any) {
-      const isRetryable = e.message && (e.message.includes('503') || e.message.includes('429'));
-      if (isRetryable && i < retries - 1) {
-        const jitter = Math.floor(Math.random() * 3000); // More jitter
-        const waitTime = backoff + jitter;
-        console.warn(`Fetch error for ${query} (Attempt ${i + 1}/${retries}). Retrying in ${waitTime}ms...`);
-        await delay(waitTime);
-        backoff *= 2; 
-        continue;
-      }
-      console.error(`Final fetch error for ${query}:`, e.message || e);
-      return [];
-    }
-  }
-  return [];
-}
-
-async function fetchNews() {
-  const allResults: any[] = [];
-  const seenUrls = new Set<string>();
-
-  console.log('Starting news update...');
-
-  const tagSpecs = await getTagsFromDB();
-
-  // Use sequential fetching with MUCH longer delays to stay under the radar
-  for (const query of SEARCH_QUERIES) {
-    const items = await fetchWithRetry(query);
-    if (items && items.length > 0) {
-      items.forEach(item => {
-        if (!item.link || seenUrls.has(item.link)) return;
-        seenUrls.add(item.link);
-        allResults.push(processArticle(item, tagSpecs));
-      });
-    }
-    // Very long delay between queries (10-15 seconds)
-    if (SEARCH_QUERIES.indexOf(query) < SEARCH_QUERIES.length - 1) {
-      const wait = 10000 + Math.random() * 5000;
-      console.log(`Waiting ${Math.round(wait/1000)}s before next query...`);
-      await delay(wait);
+  for (const result of googleResults) {
+    if (result.status !== 'fulfilled') continue;
+    for (const item of result.value) {
+      if (!item.link) continue;
+      const article = processArticle(item, tagSpecs);
+      if (article.publishedDate !== targetDate) continue;
+      if (addArticle(article)) articles.push(article);
     }
   }
 
-  // Unique by URL/ID
-  const uniqueResults = allResults.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-  
-  // Merge with store
-  const existingIds = new Set(articleStore.map(a => a.id));
-  const newArticles = uniqueResults.filter(a => !existingIds.has(a.id));
-  
-  articleStore = [...newArticles, ...articleStore].slice(0, 1000); // Keep last 1000
-  console.log(`News updated. New: ${newArticles.length}, Total: ${articleStore.length}`);
+  for (const result of naverResults) {
+    if (result.status !== 'fulfilled') continue;
+    for (const item of result.value) {
+      if (!item.link && !(item as NaverNewsItem).originallink) continue;
+      const article = processNaverItem(item as NaverNewsItem, tagSpecs);
+      if (addArticle(article)) articles.push(article);
+    }
+  }
+
+  return articles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 }
 
 async function startServer() {
@@ -233,30 +107,26 @@ async function startServer() {
     }
   });
 
-  app.get('/api/news', (req, res) => {
-    const { date } = req.query;
-    let filtered = [...articleStore];
-    if (date) {
-      filtered = articleStore.filter(a => a.publishedDate === date);
+  app.get('/api/news', async (req, res) => {
+    try {
+      const todayKst = getKstDateStr(new Date());
+      const targetDate = typeof req.query.date === 'string' ? req.query.date : todayKst;
+      const articles = await fetchNews(targetDate);
+      res.json({ total: articles.length, articles });
+    } catch (e: any) {
+      console.error('[/api/news] error:', e);
+      res.status(500).json({ error: 'Internal server error' });
     }
-    // Sort by latest
-    filtered.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-    res.json({ total: filtered.length, articles: filtered });
   });
 
   app.post('/api/fetch', async (req, res) => {
-    const beforeCount = articleStore.length;
-    await fetchNews();
-    const afterCount = articleStore.length;
-    res.json({ saved: afterCount - beforeCount, total: afterCount });
-  });
-
-  app.get('/api/tags', async (req, res) => {
     try {
-      const tags = await getTagsFromDB();
-      res.json({ tags });
+      const targetDate = getKstDateStr(new Date());
+      const articles = await fetchNews(targetDate);
+      res.json({ saved: articles.length, total: articles.length });
     } catch (e: any) {
-      res.status(503).json({ error: 'Tag data unavailable', detail: e.message });
+      console.error('[/api/fetch] error:', e);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -278,10 +148,6 @@ async function startServer() {
     }
   });
 
-  app.get('/debug-root', (req, res) => {
-    res.send(`Server is alive. ENV: ${process.env.NODE_ENV}. Time: ${new Date().toISOString()}`);
-  });
-
   const isProduction = process.env.NODE_ENV === 'production';
 
   if (!isProduction) {
@@ -294,18 +160,13 @@ async function startServer() {
     console.log('Vite middleware loaded (Development)');
   } else {
     const distPath = path.resolve(process.cwd(), 'dist');
-    console.log(`Serving production build from: ${distPath}`);
-    
-    // Serve static files
     app.use(express.static(distPath));
-    
-    // Fallback for SPA
     app.get('*', (req, res) => {
       const indexPath = path.join(distPath, 'index.html');
       res.sendFile(indexPath, (err) => {
         if (err) {
           console.error(`Error sending index.html from ${indexPath}:`, err);
-          res.status(404).send(`404: Page not found. The server could not find index.html at ${indexPath}. Please ensure 'npm run build' was executed.`);
+          res.status(404).send('404: Page not found.');
         }
       });
     });
@@ -315,8 +176,6 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV}`);
-    // Background fetch after start
-    fetchNews().catch(console.error);
   });
 }
 

@@ -1,10 +1,6 @@
 import { type CategoryDef } from '../lib/apiConstants.js';
 import { pickColor } from '../lib/colorPalette.js';
-
-function getEdgeConfigId(): string {
-  const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
-  return match ? match[0] : '';
-}
+import { getEdgeConfigId } from '../lib/newsUtils.js';
 
 async function updateEdgeConfigKey(key: string, value: unknown): Promise<void> {
   const edgeConfigId = getEdgeConfigId();
