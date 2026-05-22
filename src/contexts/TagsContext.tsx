@@ -46,9 +46,11 @@ export function TagsProvider({ children }: { children: ReactNode }) {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const getCategoryColor = useCallback((categoryName: string) => {
+    // Static palette takes priority — ensures all known categories use the
+    // canonical colors even when the DB was populated with an older palette.
+    if (CATEGORY_COLORS[categoryName]) return CATEGORY_COLORS[categoryName];
     const cat = categories.find(c => c.name === categoryName);
-    if (cat) return cat.color;
-    return CATEGORY_COLORS[categoryName] ?? UNCLASSIFIED_COLOR;
+    return cat?.color ?? UNCLASSIFIED_COLOR;
   }, [categories]);
 
   const mutateTags = useCallback((updater: (prev: TagSpec[]) => TagSpec[]) => {
