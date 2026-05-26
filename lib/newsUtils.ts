@@ -78,6 +78,49 @@ export function extractDomain(url: string): string {
   }
 }
 
+// ── Search queries ───────────────────────────────────────────────────────────
+// Multiple queries widen the pool: Google News RSS caps each query at ~100 items
+// and Naver's API caps display at 100, so splitting keywords across queries
+// raises the ceiling. Dedup downstream removes overlaps.
+export const GOOGLE_QUERIES = [
+  '(AI OR 인공지능)',
+  '(생성형 AI OR LLM OR AI 에이전트 OR AI 반도체)',
+  '(챗GPT OR ChatGPT OR 오픈AI OR OpenAI)',
+  '(엔비디아 OR HBM OR AI 반도체 OR AI 칩)',
+  '(구글 AI OR 제미나이 OR 클로드 OR 코파일럿)',
+];
+
+// Naver treats spaces as OR within a query.
+export const NAVER_QUERIES = [
+  'AI 인공지능',
+  '생성형AI LLM',
+  '챗GPT 오픈AI',
+  '엔비디아 AI반도체',
+  '제미나이 클로드',
+];
+
+// ── AI relevance gate ────────────────────────────────────────────────────────
+// Output-side whitelist: a title must match at least one pattern to be kept.
+// "AI" alone is permitted when not glued to other Latin letters (so MAIL, FAIR
+// don't match); Korean adjacency is intentionally allowed.
+const AI_RELEVANCE_PATTERNS: RegExp[] = [
+  /(?<![A-Za-z])AI(?![A-Za-z])/,
+  /인공지능|생성형|초거대|거대언어모델|범용인공지능|AGI/,
+  /\bLLM\b|\bSLM\b|\bRAG\b|\bMCP\b/i,
+  /GPT|챗지피티|챗GPT|ChatGPT/i,
+  /오픈AI|OpenAI|앤스로픽|Anthropic|클로드|Claude/i,
+  /제미나이|Gemini|코파일럿|Copilot|미스트랄|Mistral|라마|Llama|딥시크|DeepSeek|그록|Grok/i,
+  /딥러닝|머신러닝|기계학습|뉴럴넷|신경망|파운데이션\s*모델|파인튜닝|임베딩|벡터\s*DB/,
+  /엔비디아|NVIDIA|HBM|NPU|TPU|AI\s*반도체|AI\s*칩|AI\s*가속기/i,
+  /에이전트(?:\s*AI|틱)|에이전틱|Agentic/i,
+  /Sora|미드저니|Midjourney|스테이블\s*디퓨전|Stable\s*Diffusion/i,
+  /텍스트\s*투\s*이미지|이미지\s*생성\s*AI/i,
+];
+
+export function isAiRelated(title: string): boolean {
+  return AI_RELEVANCE_PATTERNS.some(re => re.test(title));
+}
+
 // ── Article processing ────────────────────────────────────────────────────────
 
 export function processArticle(item: any, tagSpecs: TagSpec[]) {
