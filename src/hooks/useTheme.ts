@@ -14,11 +14,11 @@ function seoulDate(): string {
   }).format(new Date());
 }
 
-async function fetchSunTimes(lat: number, lng: number): Promise<{ sunrise: Date; sunset: Date } | null> {
+async function fetchSunTimes(): Promise<{ sunrise: Date; sunset: Date } | null> {
   try {
     const today = seoulDate();
     const res = await fetch(
-      `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&date=${today}&formatted=0`,
+      `https://api.sunrise-sunset.org/json?lat=${SEOUL.lat}&lng=${SEOUL.lng}&date=${today}&formatted=0`,
       { cache: 'default' }
     );
     if (!res.ok) return null;
@@ -39,7 +39,7 @@ function isDaytime(sunrise: Date, sunset: Date): boolean {
 }
 
 async function resolveAutoDark(): Promise<boolean> {
-  const sun = await fetchSunTimes(SEOUL.lat, SEOUL.lng);
+  const sun = await fetchSunTimes();
   if (!sun) {
     const kstHour = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' })).getHours();
     return kstHour >= 19 || kstHour < 7;
