@@ -3,11 +3,22 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 const SEOUL = { lat: 37.5665, lng: 126.9780 };
 const RECHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
-async function fetchSunTimes(lat: number, lng: number): Promise<{ sunrise: Date; sunset: Date } | null> {
+// Date in Asia/Seoul (en-CA formats as YYYY-MM-DD). Using UTC here would query
+// the previous day during KST early-morning hours (when UTC is still yesterday).
+function seoulDate(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+async function fetchSunTimes(): Promise<{ sunrise: Date; sunset: Date } | null> {
   try {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = seoulDate();
     const res = await fetch(
-      `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&date=${today}&formatted=0`,
+      `https://api.sunrise-sunset.org/json?lat=${SEOUL.lat}&lng=${SEOUL.lng}&date=${today}&formatted=0`,
       { cache: 'default' }
     );
     if (!res.ok) return null;
@@ -28,19 +39,7 @@ function isDaytime(sunrise: Date, sunset: Date): boolean {
 }
 
 async function resolveAutoDark(): Promise<boolean> {
-  const coords = await new Promise<{ lat: number; lng: number }>((resolve) => {
-    if (!navigator.geolocation) {
-      resolve(SEOUL);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(SEOUL),
-      { timeout: 4000 }
-    );
-  });
-
-  const sun = await fetchSunTimes(coords.lat, coords.lng);
+  const sun = await fetchSunTimes();
   if (!sun) {
     const kstHour = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' })).getHours();
     return kstHour >= 19 || kstHour < 7;
@@ -50,13 +49,26 @@ async function resolveAutoDark(): Promise<boolean> {
 
 export function useTheme() {
   const [isDark, setIsDark] = useState(false);
-  // null = following auto, boolean = manual override
+  // null = following auto, boolean = active manual override
   const overrideRef = useRef<boolean | null>(null);
+  // last auto-resolved value, used to detect a real sunrise/sunset transition
+  const lastAutoRef = useRef<boolean | null>(null);
 
   const applyAuto = useCallback(() => {
     resolveAutoDark().then((dark) => {
-      overrideRef.current = null;
-      setIsDark(dark);
+      const prevAuto = lastAutoRef.current;
+      lastAutoRef.current = dark;
+      if (overrideRef.current === null) {
+        // Following auto.
+        setIsDark(dark);
+        return;
+      }
+      // A manual override is active: keep it until the auto state actually
+      // flips (a sunrise/sunset boundary is crossed), then hand back to auto.
+      if (prevAuto !== null && prevAuto !== dark) {
+        overrideRef.current = null;
+        setIsDark(dark);
+      }
     });
   }, []);
 
