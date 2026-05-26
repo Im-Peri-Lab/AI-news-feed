@@ -7,6 +7,7 @@ import {
   fetchNaverNews,
   processNaverItem,
   makeDeduper,
+  isAiRelated,
   type NaverNewsItem,
 } from '../lib/newsUtils.js';
 
@@ -47,12 +48,21 @@ export default async function handler(req: any, res: any) {
     const addArticle = makeDeduper();
     const all: any[] = [];
 
+    const droppedSamples: string[] = [];
+    let droppedGoogle = 0;
+    let droppedNaver = 0;
+
     const googleRaw = googleResults.map(r => r.status === 'fulfilled' ? r.value.length : 0);
     for (const result of googleResults) {
       if (result.status !== 'fulfilled') continue;
       for (const item of result.value) {
         if (!item.link) continue;
         const article = processArticle(item, tags);
+        if (!isAiRelated(article.title)) {
+          droppedGoogle++;
+          if (droppedSamples.length < 5) droppedSamples.push(article.title);
+          continue;
+        }
         if (addArticle(article)) all.push(article);
       }
     }
@@ -64,8 +74,16 @@ export default async function handler(req: any, res: any) {
       for (const item of result.value) {
         if (!item.link && !(item as NaverNewsItem).originallink) continue;
         const article = processNaverItem(item as NaverNewsItem, tags);
+        if (!isAiRelated(article.title)) {
+          droppedNaver++;
+          if (droppedSamples.length < 5) droppedSamples.push(article.title);
+          continue;
+        }
         if (addArticle(article)) all.push(article);
       }
+    }
+    if (droppedSamples.length) {
+      console.log('[news] droppedNonAi samples:', JSON.stringify(droppedSamples));
     }
 
     const beforeDedup = googleRaw.reduce((a: number, b: number) => a + b, 0)
@@ -86,11 +104,13 @@ export default async function handler(req: any, res: any) {
           query1Raw: googleRaw[0] ?? 0,
           query2Raw: googleRaw[1] ?? 0,
           afterDateFilter: googleAfterDateFilter,
+          droppedNonAi: droppedGoogle,
         },
         naver: {
           query1Raw: naverRaw[0] ?? 0,
           query2Raw: naverRaw[1] ?? 0,
           afterDateFilter: naverAfterDateFilter,
+          droppedNonAi: droppedNaver,
         },
         beforeDedup,
         afterGoogleDedup: googleAfterDedup,

@@ -7,6 +7,7 @@ import {
   fetchNaverNews,
   processNaverItem,
   makeDeduper,
+  isAiRelated,
   type NaverNewsItem,
 } from '../lib/newsUtils.js';
 
@@ -25,7 +26,9 @@ function buildSearchQueries(dateStr: string): string[] {
 interface FetchStats {
   googleRaw: number;
   googleAfterDateFilter: number;
+  googleDroppedNonAi: number;
   naverRaw: number;
+  naverDroppedNonAi: number;
   naverSkipped: boolean;
   finalTotal: number;
 }
@@ -49,8 +52,11 @@ async function fetchAllNews(): Promise<{ articles: any[]; stats: FetchStats }> {
   const addArticle = makeDeduper();
   const articles: any[] = [];
 
+  const droppedSamples: string[] = [];
+
   let googleRaw = 0;
   let googleAfterDateFilter = 0;
+  let googleDroppedNonAi = 0;
   for (const result of googleResults) {
     if (result.status !== 'fulfilled') continue;
     for (const item of result.value) {
@@ -61,25 +67,41 @@ async function fetchAllNews(): Promise<{ articles: any[]; stats: FetchStats }> {
       // the UTC/KST boundary gap, so trim back to the target date here.
       if (article.publishedDate !== dateStr) continue;
       googleAfterDateFilter++;
+      if (!isAiRelated(article.title)) {
+        googleDroppedNonAi++;
+        if (droppedSamples.length < 5) droppedSamples.push(article.title);
+        continue;
+      }
       if (addArticle(article)) articles.push(article);
     }
   }
 
   let naverRaw = 0;
+  let naverDroppedNonAi = 0;
   for (const result of naverResults) {
     if (result.status !== 'fulfilled') continue;
     for (const item of result.value) {
       if (!item.link && !(item as NaverNewsItem).originallink) continue;
       naverRaw++;
       const article = processNaverItem(item as NaverNewsItem, tagSpecs);
+      if (!isAiRelated(article.title)) {
+        naverDroppedNonAi++;
+        if (droppedSamples.length < 5) droppedSamples.push(article.title);
+        continue;
+      }
       if (addArticle(article)) articles.push(article);
     }
+  }
+  if (droppedSamples.length) {
+    console.log('[fetch] droppedNonAi samples:', JSON.stringify(droppedSamples));
   }
 
   const stats: FetchStats = {
     googleRaw,
     googleAfterDateFilter,
+    googleDroppedNonAi,
     naverRaw,
+    naverDroppedNonAi,
     naverSkipped: !naverConfigured,
     finalTotal: articles.length,
   };
