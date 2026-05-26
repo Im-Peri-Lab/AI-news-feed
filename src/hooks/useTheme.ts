@@ -24,7 +24,13 @@ async function fetchSunTimes(lat: number, lng: number): Promise<{ sunrise: Date;
 
 function isDaytime(sunrise: Date, sunset: Date): boolean {
   const now = Date.now();
-  return now >= sunrise.getTime() && now < sunset.getTime();
+  const sr = sunrise.getTime();
+  const ss = sunset.getTime();
+  // The API returns sunrise/sunset for a UTC calendar date. For locations far
+  // east of UTC (e.g. KST, UTC+9) those two instants are "crossed" (sunrise >
+  // sunset), so daytime is everything outside the night window [sunset, sunrise).
+  if (sr <= ss) return now >= sr && now < ss;
+  return now < ss || now >= sr;
 }
 
 async function resolveAutoDark(): Promise<boolean> {
@@ -50,13 +56,26 @@ async function resolveAutoDark(): Promise<boolean> {
 
 export function useTheme() {
   const [isDark, setIsDark] = useState(false);
-  // null = following auto, boolean = manual override
+  // null = following auto, boolean = active manual override
   const overrideRef = useRef<boolean | null>(null);
+  // last auto-resolved value, used to detect a real sunrise/sunset transition
+  const lastAutoRef = useRef<boolean | null>(null);
 
   const applyAuto = useCallback(() => {
     resolveAutoDark().then((dark) => {
-      overrideRef.current = null;
-      setIsDark(dark);
+      const prevAuto = lastAutoRef.current;
+      lastAutoRef.current = dark;
+      if (overrideRef.current === null) {
+        // Following auto.
+        setIsDark(dark);
+        return;
+      }
+      // A manual override is active: keep it until the auto state actually
+      // flips (a sunrise/sunset boundary is crossed), then hand back to auto.
+      if (prevAuto !== null && prevAuto !== dark) {
+        overrideRef.current = null;
+        setIsDark(dark);
+      }
     });
   }, []);
 
