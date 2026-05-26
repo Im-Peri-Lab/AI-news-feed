@@ -1,27 +1,16 @@
 import {
   getTags,
   getKstDateStr,
-  getKstOffsetDateStr,
   processArticle,
   fetchWithRetry,
   fetchNaverNews,
   processNaverItem,
   makeDeduper,
   isAiRelated,
+  GOOGLE_QUERIES,
+  NAVER_QUERIES,
   type NaverNewsItem,
 } from '../lib/newsUtils.js';
-
-function buildSearchQueries(dateStr: string): string[] {
-  // Google RSS after/before are interpreted as UTC boundaries, so KST 00:00–08:59
-  // would fall outside after:dateStr. Widen the window by one day on each side and
-  // filter to KST dateStr after parsing.
-  const prevDateStr = getKstOffsetDateStr(dateStr, -1);
-  const nextDateStr = getKstOffsetDateStr(dateStr, +2);
-  return [
-    `(AI OR 인공지능) after:${prevDateStr} before:${nextDateStr}`,
-    `(생성형 AI OR LLM OR AI 에이전트 OR AI 반도체) after:${prevDateStr} before:${nextDateStr}`,
-  ];
-}
 
 interface FetchStats {
   googleRaw: number;
@@ -36,17 +25,16 @@ interface FetchStats {
 async function fetchAllNews(): Promise<{ articles: any[]; stats: FetchStats }> {
   const now = new Date();
   const dateStr = getKstDateStr(now);
-  const searchQueries = buildSearchQueries(dateStr);
+  // This endpoint always collects "today", so when:1d (Google's trending pool)
+  // gives the largest result set; publishedDate (KST) post-filter trims to today.
+  const googleQueries = GOOGLE_QUERIES.map(q => `${q} when:1d`);
 
   const naverConfigured = !!(process.env.NAVER_CLIENT_ID && process.env.NAVER_CLIENT_SECRET);
 
   const [tagSpecs, googleResults, naverResults] = await Promise.all([
     getTags(),
-    Promise.allSettled(searchQueries.map(q => fetchWithRetry(q))),
-    Promise.allSettled([
-      fetchNaverNews('AI 인공지능', dateStr),
-      fetchNaverNews('생성형AI LLM', dateStr),
-    ]),
+    Promise.allSettled(googleQueries.map(q => fetchWithRetry(q))),
+    Promise.allSettled(NAVER_QUERIES.map(q => fetchNaverNews(q, dateStr))),
   ]);
 
   const addArticle = makeDeduper();

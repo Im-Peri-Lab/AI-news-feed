@@ -78,6 +78,27 @@ export function extractDomain(url: string): string {
   }
 }
 
+// ── Search queries ───────────────────────────────────────────────────────────
+// Multiple queries widen the pool: Google News RSS caps each query at ~100 items
+// and Naver's API caps display at 100, so splitting keywords across queries
+// raises the ceiling. Dedup downstream removes overlaps.
+export const GOOGLE_QUERIES = [
+  '(AI OR 인공지능)',
+  '(생성형 AI OR LLM OR AI 에이전트 OR AI 반도체)',
+  '(챗GPT OR ChatGPT OR 오픈AI OR OpenAI)',
+  '(엔비디아 OR HBM OR AI 반도체 OR AI 칩)',
+  '(구글 AI OR 제미나이 OR 클로드 OR 코파일럿)',
+];
+
+// Naver treats spaces as OR within a query.
+export const NAVER_QUERIES = [
+  'AI 인공지능',
+  '생성형AI LLM',
+  '챗GPT 오픈AI',
+  '엔비디아 AI반도체',
+  '제미나이 클로드',
+];
+
 // ── AI relevance gate ────────────────────────────────────────────────────────
 // Output-side whitelist: a title must match at least one pattern to be kept.
 // "AI" alone is permitted when not glued to other Latin letters (so MAIL, FAIR
