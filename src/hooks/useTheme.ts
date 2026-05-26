@@ -34,19 +34,7 @@ function isDaytime(sunrise: Date, sunset: Date): boolean {
 }
 
 async function resolveAutoDark(): Promise<boolean> {
-  const coords = await new Promise<{ lat: number; lng: number }>((resolve) => {
-    if (!navigator.geolocation) {
-      resolve(SEOUL);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(SEOUL),
-      { timeout: 4000 }
-    );
-  });
-
-  const sun = await fetchSunTimes(coords.lat, coords.lng);
+  const sun = await fetchSunTimes(SEOUL.lat, SEOUL.lng);
   if (!sun) {
     const kstHour = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' })).getHours();
     return kstHour >= 19 || kstHour < 7;
