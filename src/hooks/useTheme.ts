@@ -3,9 +3,20 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 const SEOUL = { lat: 37.5665, lng: 126.9780 };
 const RECHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
+// Date in Asia/Seoul (en-CA formats as YYYY-MM-DD). Using UTC here would query
+// the previous day during KST early-morning hours (when UTC is still yesterday).
+function seoulDate(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
 async function fetchSunTimes(lat: number, lng: number): Promise<{ sunrise: Date; sunset: Date } | null> {
   try {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = seoulDate();
     const res = await fetch(
       `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&date=${today}&formatted=0`,
       { cache: 'default' }
@@ -24,13 +35,7 @@ async function fetchSunTimes(lat: number, lng: number): Promise<{ sunrise: Date;
 
 function isDaytime(sunrise: Date, sunset: Date): boolean {
   const now = Date.now();
-  const sr = sunrise.getTime();
-  const ss = sunset.getTime();
-  // The API returns sunrise/sunset for a UTC calendar date. For locations far
-  // east of UTC (e.g. KST, UTC+9) those two instants are "crossed" (sunrise >
-  // sunset), so daytime is everything outside the night window [sunset, sunrise).
-  if (sr <= ss) return now >= sr && now < ss;
-  return now < ss || now >= sr;
+  return now >= sunrise.getTime() && now < sunset.getTime();
 }
 
 async function resolveAutoDark(): Promise<boolean> {
