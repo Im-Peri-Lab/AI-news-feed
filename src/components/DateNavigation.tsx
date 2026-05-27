@@ -34,13 +34,19 @@ export default function DateNavigation({
             <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-gray-600 dark:text-gray-400" />
           </button>
           
-          <div 
-            onClick={() => dateInputRef.current?.showPicker?.()}
+          <div
+            onClick={() => {
+              try {
+                dateInputRef.current?.showPicker?.();
+              } catch {
+                // picker may already be open (e.g. native tap on mobile)
+              }
+            }}
             className="flex-1 flex items-center justify-center gap-2 px-1 font-bold text-[15px] md:text-lg text-gray-900 dark:text-white whitespace-nowrap relative cursor-pointer group"
           >
             <Calendar className="w-4 h-4 text-brand" />
             <span>{formattedDate}</span>
-            <input 
+            <input
               ref={dateInputRef}
               type="date"
               value={format(currentDate, 'yyyy-MM-dd')}
@@ -49,7 +55,7 @@ export default function DateNavigation({
                 if (e.target.value) setCurrentDate(new Date(e.target.value + 'T00:00:00'));
               }}
               max={format(new Date(), 'yyyy-MM-dd')}
-              className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               title="날짜 선택"
             />
           </div>
