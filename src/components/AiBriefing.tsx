@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { Sparkles, RefreshCw, ChevronUp, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { Sparkles, RefreshCw, ChevronUp, ChevronDown, ChevronRight, Loader2, ExternalLink } from 'lucide-react';
 import { Article } from '../types';
 import { format } from 'date-fns';
 
@@ -266,9 +266,10 @@ function MustReadSection({ lines, articles }: { lines: string[]; articles: Artic
                 href={match.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block text-[15px] font-bold leading-snug text-gray-900 dark:text-white hover:text-brand dark:hover:text-brand transition-colors"
+                className="group/link inline-flex items-start gap-1.5 text-[15px] font-bold leading-snug text-gray-900 dark:text-white hover:text-brand dark:hover:text-brand transition-colors"
               >
-                {title}
+                <span>{title}</span>
+                <ExternalLink className="w-3.5 h-3.5 mt-[3px] shrink-0 text-gray-300 group-hover/link:text-brand transition-colors" />
               </a>
             ) : (
               <p className="text-[15px] font-bold leading-snug text-gray-900 dark:text-white">
