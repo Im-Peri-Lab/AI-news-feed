@@ -221,7 +221,28 @@ function CluesSection({ lines }: { lines: string[] }) {
   return <BulletList items={items} />;
 }
 
-function MustReadSection({ lines }: { lines: string[] }) {
+const normalizeTitle = (s: string) =>
+  s.toLowerCase().replace(/\s+/g, '').replace(/[^\p{L}\p{N}]/gu, '');
+
+function matchArticle(title: string, articles: Article[]): Article | undefined {
+  const target = normalizeTitle(title);
+  if (!target) return undefined;
+  let exact: Article | undefined;
+  let partial: Article | undefined;
+  for (const a of articles) {
+    const norm = normalizeTitle(a.title);
+    if (norm === target) {
+      exact = a;
+      break;
+    }
+    if (!partial && (norm.includes(target) || target.includes(norm))) {
+      partial = a;
+    }
+  }
+  return exact ?? partial;
+}
+
+function MustReadSection({ lines, articles }: { lines: string[]; articles: Article[] }) {
   const items = lines.filter(l => /^\d+\.\s/.test(l));
   if (!items.length) return null;
   return (
@@ -232,6 +253,7 @@ function MustReadSection({ lines }: { lines: string[] }) {
         const titleRaw = dashIdx !== -1 ? content.slice(0, dashIdx) : content;
         const source = dashIdx !== -1 ? content.slice(dashIdx + 3).trim() : '';
         const title = titleRaw.replace(/\*\*/g, '').trim();
+        const match = matchArticle(title, articles);
         return (
           <div key={i} className="py-3 first:pt-0 last:pb-0">
             {source && (
@@ -239,9 +261,20 @@ function MustReadSection({ lines }: { lines: string[] }) {
                 {source}
               </p>
             )}
-            <p className="text-[15px] font-bold leading-snug text-gray-900 dark:text-white">
-              {title}
-            </p>
+            {match ? (
+              <a
+                href={match.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-[15px] font-bold leading-snug text-gray-900 dark:text-white hover:text-brand dark:hover:text-brand transition-colors"
+              >
+                {title}
+              </a>
+            ) : (
+              <p className="text-[15px] font-bold leading-snug text-gray-900 dark:text-white">
+                {title}
+              </p>
+            )}
           </div>
         );
       })}
@@ -249,7 +282,7 @@ function MustReadSection({ lines }: { lines: string[] }) {
   );
 }
 
-function BriefingContent({ text }: { text: string }) {
+function BriefingContent({ text, articles }: { text: string; articles: Article[] }) {
   const sections = parseSections(text);
   if (!sections.length) return null;
 
@@ -274,7 +307,7 @@ function BriefingContent({ text }: { text: string }) {
             {isSummary && <SummarySection lines={section.lines} />}
             {isFlow && <FlowSection subsections={section.subsections} lines={section.lines} />}
             {isClues && <CluesSection lines={section.lines} />}
-            {isMustRead && <MustReadSection lines={section.lines} />}
+            {isMustRead && <MustReadSection lines={section.lines} articles={articles} />}
             {!isSummary && !isFlow && !isClues && !isMustRead && (
               <div className="space-y-2.5 md:space-y-3">
                 {section.lines.filter(l => l.trim()).map((line, j) => (
@@ -409,7 +442,7 @@ export default function AiBriefing({ articles, date }: Props) {
                 </div>
               ) : (
                 <>
-                  <BriefingContent text={text} />
+                  <BriefingContent text={text} articles={articles} />
                   {isGenerating && (
                     <span className="inline-block w-[2px] h-[1em] bg-brand animate-pulse align-middle ml-0.5" />
                   )}
