@@ -104,6 +104,34 @@ export function isAiRelated(title: string): boolean {
   return AI_RELEVANCE_PATTERNS.some(re => re.test(title));
 }
 
+// ── Tag matching ──────────────────────────────────────────────────────────────
+// A tag matches when any keyword hits exactly (word-boundary). A partial
+// (substring) match also counts unless an excludeKeyword is present. Shared by
+// both collectors so Google and Naver articles tag identically.
+export function matchTags(title: string, tagSpecs: TagSpec[]): {
+  tags: string[];
+  categories: string[];
+  matchedTerms: string[];
+} {
+  const tags: string[] = [];
+  const categories: string[] = [];
+  const matchedTerms: string[] = [];
+
+  tagSpecs.forEach(tag => {
+    const hasExactMatch = tag.keywords.some(kw => isExactMatch(title, kw));
+    const hasPartialMatch = !hasExactMatch && tag.keywords.some(kw => title.toLowerCase().includes(kw.toLowerCase()));
+    const isExcluded = (tag.excludeKeywords ?? []).some(kw => title.toLowerCase().includes(kw.toLowerCase()));
+    const isMatched = hasExactMatch || (hasPartialMatch && !isExcluded);
+    if (isMatched) {
+      if (!tags.includes(tag.name)) tags.push(tag.name);
+      if (!categories.includes(tag.category)) categories.push(tag.category);
+      matchedTerms.push(tag.name);
+    }
+  });
+
+  return { tags, categories, matchedTerms };
+}
+
 // ── Article processing ────────────────────────────────────────────────────────
 
 export function processArticle(item: any, tagSpecs: TagSpec[]) {
@@ -128,21 +156,7 @@ export function processArticle(item: any, tagSpecs: TagSpec[]) {
   const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
   const safePubDate = Number.isNaN(pubDate.getTime()) ? new Date() : pubDate;
 
-  const tags: string[] = [];
-  const categories: string[] = [];
-  const matchedTerms: string[] = [];
-
-  tagSpecs.forEach(tag => {
-    const hasExactMatch = tag.keywords.some(kw => isExactMatch(title, kw));
-    const hasPartialMatch = !hasExactMatch && tag.keywords.some(kw => title.toLowerCase().includes(kw.toLowerCase()));
-    const isExcluded = (tag.excludeKeywords ?? []).some(kw => title.toLowerCase().includes(kw.toLowerCase()));
-    const isMatched = hasExactMatch || (hasPartialMatch && !isExcluded);
-    if (isMatched) {
-      if (!tags.includes(tag.name)) tags.push(tag.name);
-      if (!categories.includes(tag.category)) categories.push(tag.category);
-      matchedTerms.push(tag.name);
-    }
-  });
+  const { tags, categories, matchedTerms } = matchTags(title, tagSpecs);
 
   return {
     id: generateId(url),
@@ -269,21 +283,7 @@ export function processNaverItem(item: NaverNewsItem, tagSpecs: TagSpec[]) {
   const pubDate = new Date(item.pubDate);
   const safePubDate = Number.isNaN(pubDate.getTime()) ? new Date() : pubDate;
 
-  const tags: string[] = [];
-  const categories: string[] = [];
-  const matchedTerms: string[] = [];
-
-  tagSpecs.forEach(tag => {
-    const hasExactMatch = tag.keywords.some(kw => isExactMatch(rawTitle, kw));
-    const hasPartialMatch = !hasExactMatch && tag.keywords.some(kw => rawTitle.toLowerCase().includes(kw.toLowerCase()));
-    const isExcluded = (tag.excludeKeywords ?? []).some(kw => rawTitle.toLowerCase().includes(kw.toLowerCase()));
-    const isMatched = hasExactMatch || (hasPartialMatch && !isExcluded);
-    if (isMatched) {
-      if (!tags.includes(tag.name)) tags.push(tag.name);
-      if (!categories.includes(tag.category)) categories.push(tag.category);
-      matchedTerms.push(tag.name);
-    }
-  });
+  const { tags, categories, matchedTerms } = matchTags(rawTitle, tagSpecs);
 
   return {
     id: generateId(url),
