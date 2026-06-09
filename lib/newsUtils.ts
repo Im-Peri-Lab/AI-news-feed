@@ -2,26 +2,9 @@ import Parser from 'rss-parser';
 import crypto from 'crypto';
 import { type TagSpec } from './apiConstants.js';
 
-// ── Edge Config ──────────────────────────────────────────────────────────────
-
-export function getEdgeConfigId(): string {
-  const match = (process.env.EDGE_CONFIG || '').match(/ecfg_[a-zA-Z0-9]+/);
-  return match ? match[0] : '';
-}
-
-export async function getTags(): Promise<TagSpec[]> {
-  const edgeConfigId = getEdgeConfigId();
-  const token = process.env.VERCEL_API_TOKEN;
-  if (!edgeConfigId || !token) throw new Error('Edge Config not configured');
-  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/item/tags`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error(`Edge Config read failed: ${res.status}`);
-  const data = await res.json();
-  const tags = data?.value as TagSpec[] | null;
-  if (!tags) throw new Error('No tags found in Edge Config');
-  return tags;
-}
+// Edge Config access lives in lib/edgeConfig.ts; re-exported here so existing
+// importers (api/news, api/fetch) keep working without churn.
+export { getEdgeConfigId, getTags } from './edgeConfig.js';
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
 

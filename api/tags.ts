@@ -1,62 +1,10 @@
-import { type TagSpec, type CategoryDef } from '../lib/apiConstants.js';
-import { getEdgeConfigId } from '../lib/newsUtils.js';
-
-async function updateEdgeConfigKey(key: string, value: unknown): Promise<void> {
-  const edgeConfigId = getEdgeConfigId();
-  const token = process.env.VERCEL_API_TOKEN;
-  if (!edgeConfigId || !token) throw new Error('Edge Config not configured');
-  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: [{ operation: 'upsert', key, value }] }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Edge Config update failed: ${res.status} ${text}`);
-  }
-}
-
-async function readEdgeConfigKey<T>(key: string): Promise<T | null> {
-  const edgeConfigId = getEdgeConfigId();
-  const token = process.env.VERCEL_API_TOKEN;
-  if (!edgeConfigId || !token) return null;
-  try {
-    const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/item/${key}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return (data?.value ?? null) as T | null;
-  } catch {
-    return null;
-  }
-}
-
-async function getTagsFromConfig(): Promise<TagSpec[]> {
-  const tags = await readEdgeConfigKey<TagSpec[]>('tags');
-  if (!tags) throw new Error('No tags found in Edge Config');
-  return tags;
-}
-
-async function getCategoriesFromConfig(): Promise<CategoryDef[]> {
-  const categories = await readEdgeConfigKey<CategoryDef[]>('categories');
-  if (!categories) throw new Error('No categories found in Edge Config');
-  return categories;
-}
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9\-가-힣]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-}
+import { type TagSpec } from '../lib/apiConstants.js';
+import { getTags, getCategories, writeEdgeConfigKey, slugify } from '../lib/edgeConfig.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method === 'GET') {
     try {
-      const [tags, categories] = await Promise.all([getTagsFromConfig(), getCategoriesFromConfig()]);
+      const [tags, categories] = await Promise.all([getTags(), getCategories()]);
       return res.json({ tags, categories });
     } catch (e: any) {
       console.error('[api/tags] Edge Config load failed:', e.message);
@@ -69,7 +17,7 @@ export default async function handler(req: any, res: any) {
       const { name, category, keywords, excludeKeywords } = req.body;
       if (!name || !category) return res.status(400).json({ error: 'name and category are required' });
 
-      const tags = await getTagsFromConfig();
+      const tags = await getTags();
       const id = slugify(name) || `tag-${Date.now()}`;
 
       if (tags.some(t => t.id === id)) {
@@ -77,7 +25,7 @@ export default async function handler(req: any, res: any) {
       }
 
       const newTag: TagSpec = { id, name: name.trim(), category, keywords: keywords ?? [], ...(excludeKeywords !== undefined && { excludeKeywords }) };
-      await updateEdgeConfigKey('tags', [...tags, newTag]);
+      await writeEdgeConfigKey('tags', [...tags, newTag]);
       return res.status(201).json(newTag);
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
@@ -88,7 +36,7 @@ export default async function handler(req: any, res: any) {
     try {
       const { tags } = req.body;
       if (!Array.isArray(tags)) return res.status(400).json({ error: 'tags array required' });
-      await updateEdgeConfigKey('tags', tags);
+      await writeEdgeConfigKey('tags', tags);
       return res.json({ tags });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
