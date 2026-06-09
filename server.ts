@@ -10,7 +10,6 @@ import path from 'path';
 // (e.g. an out-of-date briefing prompt or a smaller query set served locally).
 import briefingHandler from './api/briefing.js';
 import newsHandler from './api/news.js';
-import fetchHandler from './api/fetch.js';
 import tagsHandler from './api/tags.js';
 import tagIdHandler from './api/tags/[id].js';
 import categoriesHandler from './api/categories.js';
@@ -47,7 +46,6 @@ async function startServer() {
 
   app.post('/api/briefing', adapt(briefingHandler));
   app.get('/api/news', adapt(newsHandler));
-  app.post('/api/fetch', adapt(fetchHandler));
 
   // GET (list) / POST (create) / PATCH (reorder)
   app.all('/api/tags', adapt(tagsHandler));

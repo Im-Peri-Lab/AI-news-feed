@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { getNews, refreshNews } from '../services/newsService';
+import { getNews } from '../services/newsService';
 import { Article } from '../types';
 import NewsCard from './NewsCard';
 import TagFilter from './TagFilter';
@@ -42,7 +42,6 @@ export default function NewsFeed() {
   const onRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refreshNews();
       await loadNews(currentDate);
     } catch (e) {
       console.error(e);
