@@ -1,44 +1,6 @@
 import { type CategoryDef } from '../lib/apiConstants.js';
 import { pickColor } from '../lib/colorPalette.js';
-import { getEdgeConfigId } from '../lib/newsUtils.js';
-
-async function updateEdgeConfigKey(key: string, value: unknown): Promise<void> {
-  const edgeConfigId = getEdgeConfigId();
-  const token = process.env.VERCEL_API_TOKEN;
-  if (!edgeConfigId || !token) throw new Error('Edge Config not configured');
-  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: [{ operation: 'upsert', key, value }] }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Edge Config update failed: ${res.status} ${text}`);
-  }
-}
-
-async function getCategoriesFromConfig(): Promise<CategoryDef[]> {
-  const edgeConfigId = getEdgeConfigId();
-  const token = process.env.VERCEL_API_TOKEN;
-  if (!edgeConfigId || !token) throw new Error('Edge Config not configured');
-  const res = await fetch(`https://api.vercel.com/v1/edge-config/${edgeConfigId}/item/categories`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error(`Edge Config read failed: ${res.status}`);
-  const data = await res.json();
-  const categories = data?.value as CategoryDef[] | null;
-  if (!categories) throw new Error('No categories found in Edge Config');
-  return categories;
-}
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9\-가-힣]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-}
+import { getCategories, writeEdgeConfigKey, slugify } from '../lib/edgeConfig.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method === 'POST') {
@@ -46,7 +8,7 @@ export default async function handler(req: any, res: any) {
       const { name } = req.body;
       if (!name) return res.status(400).json({ error: 'name is required' });
 
-      const categories = await getCategoriesFromConfig();
+      const categories = await getCategories();
       const id = slugify(name) || `cat-${Date.now()}`;
 
       if (categories.some(c => c.id === id)) {
@@ -55,7 +17,7 @@ export default async function handler(req: any, res: any) {
 
       const color = pickColor(categories.map((c) => c.color));
       const newCategory: CategoryDef = { id, name: name.trim(), color };
-      await updateEdgeConfigKey('categories', [...categories, newCategory]);
+      await writeEdgeConfigKey('categories', [...categories, newCategory]);
       return res.status(201).json(newCategory);
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
@@ -66,7 +28,7 @@ export default async function handler(req: any, res: any) {
     try {
       const { categories } = req.body;
       if (!Array.isArray(categories)) return res.status(400).json({ error: 'categories array required' });
-      await updateEdgeConfigKey('categories', categories);
+      await writeEdgeConfigKey('categories', categories);
       return res.json({ categories });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
