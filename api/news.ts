@@ -1,5 +1,4 @@
 import {
-  getTags,
   getKstDateStr,
   getKstOffsetDateStr,
   processArticle,
@@ -12,6 +11,9 @@ import {
   NAVER_QUERIES,
   type NaverNewsItem,
 } from '../lib/newsUtils.js';
+// Read tags via the connection string (no VERCEL_API_TOKEN needed). This is a
+// read-only path, so the CDN cache lag that getTagsCached carries is acceptable.
+import { getTagsCached } from '../lib/edgeConfig.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -33,7 +35,7 @@ export default async function handler(req: any, res: any) {
       : `after:${getKstOffsetDateStr(targetDate, -1)} before:${getKstOffsetDateStr(targetDate, +1)}`;
     const googleQueries = GOOGLE_QUERIES.map(q => `${q} ${googleDateSuffix}`);
 
-    const tags = await getTags();
+    const tags = await getTagsCached();
 
     const [googleResults, naverResults] = await Promise.all([
       Promise.allSettled(googleQueries.map(q => fetchWithRetry(q))),
