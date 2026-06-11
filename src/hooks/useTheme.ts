@@ -1,22 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getKstDateStr, getKstHour } from '../lib/date';
 
 const SEOUL = { lat: 37.5665, lng: 126.9780 };
 const RECHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
-// Date in Asia/Seoul (en-CA formats as YYYY-MM-DD). Using UTC here would query
-// the previous day during KST early-morning hours (when UTC is still yesterday).
-function seoulDate(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
-
 async function fetchSunTimes(): Promise<{ sunrise: Date; sunset: Date } | null> {
   try {
-    const today = seoulDate();
+    const today = getKstDateStr();
     const res = await fetch(
       `https://api.sunrise-sunset.org/json?lat=${SEOUL.lat}&lng=${SEOUL.lng}&date=${today}&formatted=0`,
       { cache: 'default' }
@@ -41,7 +31,7 @@ function isDaytime(sunrise: Date, sunset: Date): boolean {
 async function resolveAutoDark(): Promise<boolean> {
   const sun = await fetchSunTimes();
   if (!sun) {
-    const kstHour = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' })).getHours();
+    const kstHour = getKstHour();
     return kstHour >= 19 || kstHour < 7;
   }
   return !isDaytime(sun.sunrise, sun.sunset);
