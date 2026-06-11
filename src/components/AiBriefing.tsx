@@ -117,9 +117,9 @@ function BulletList({ items }: { items: string[] }) {
 }
 
 function getCategoryBarColor(title: string): string {
-  if (title.includes('글로벌') || title.includes('빅테크')) return 'bg-[#3b82f6]';
-  if (title.includes('국내') || title.includes('AX')) return 'bg-[#10b981]';
-  if (title.includes('정책') || title.includes('사회')) return 'bg-[#f97316]';
+  if (title.includes('글로벌') || title.includes('빅테크')) return 'bg-blue-500';
+  if (title.includes('국내') || title.includes('AX')) return 'bg-emerald-500';
+  if (title.includes('정책') || title.includes('사회')) return 'bg-orange-500';
   return 'bg-gray-400 dark:bg-gray-500';
 }
 
@@ -161,7 +161,7 @@ function FlowSection({ subsections, lines }: { subsections: SubSection[]; lines:
               >
                 <div className="flex items-stretch gap-2.5">
                   <span className={`w-[3px] self-stretch rounded-sm ${barColor}`} />
-                  <span className="text-[15px] md:text-sm font-semibold text-[#1a1a1a] dark:text-[#f5f5f5]">
+                  <span className="text-[15px] md:text-sm font-semibold text-gray-900 dark:text-white">
                     {sub.title}
                   </span>
                 </div>
