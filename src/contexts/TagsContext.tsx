@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { TagSpec, CategoryDef } from '../types';
-import { CATEGORY_COLORS } from '../constants/tags';
 
 interface TagsContextValue {
   tags: TagSpec[];
@@ -18,7 +17,7 @@ const TagsContext = createContext<TagsContextValue>({
   tags: [],
   categories: [],
   isLoading: true,
-  getCategoryColor: (name) => CATEGORY_COLORS[name] ?? UNCLASSIFIED_COLOR,
+  getCategoryColor: () => UNCLASSIFIED_COLOR,
   refresh: async () => {},
   mutateTags: () => {},
   mutateCategories: () => {},
@@ -46,9 +45,9 @@ export function TagsProvider({ children }: { children: ReactNode }) {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const getCategoryColor = useCallback((categoryName: string) => {
-    // Static palette takes priority — ensures all known categories use the
-    // canonical colors even when the DB was populated with an older palette.
-    if (CATEGORY_COLORS[categoryName]) return CATEGORY_COLORS[categoryName];
+    // The category's stored color (assigned at creation, editable in the
+    // manager) is the single source of truth. Names not backed by a stored
+    // category — '미분류', the '전체' filter tab, '' — fall back to neutral gray.
     const cat = categories.find(c => c.name === categoryName);
     return cat?.color ?? UNCLASSIFIED_COLOR;
   }, [categories]);
