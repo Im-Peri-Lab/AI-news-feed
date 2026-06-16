@@ -1,4 +1,5 @@
 import { ExternalLink, Link2, Share2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { Article } from '../types';
 import { useTags } from '../contexts/TagsContext';
 import { cn } from '../lib/utils';
@@ -28,6 +29,16 @@ function TeamsIcon() {
 
 const DROPDOWN_ITEM = "w-full text-left px-3 py-2.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2.5";
 
+interface DropdownPos { top?: number; bottom?: number; right: number; }
+
+function calcDropdownPos(triggerRef: { current: HTMLElement | null }, dropHeight: number): DropdownPos {
+  const rect = triggerRef.current!.getBoundingClientRect();
+  const openUp = rect.bottom + dropHeight > window.innerHeight - 16;
+  return openUp
+    ? { bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right }
+    : { top: rect.bottom + 4, right: window.innerWidth - rect.right };
+}
+
 interface NewsCardProps {
   article: Article;
   isFirst?: boolean;
@@ -38,8 +49,13 @@ export default function NewsCard({ article, isFirst, isLast }: NewsCardProps) {
   const { tags, getCategoryColor } = useTags();
   const [showCopyMenu, setShowCopyMenu] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
-  const copyWrapRef = useRef<HTMLDivElement>(null);
-  const shareWrapRef = useRef<HTMLDivElement>(null);
+  const [copyPos, setCopyPos] = useState<DropdownPos>({ top: 0, right: 0 });
+  const [sharePos, setSharePos] = useState<DropdownPos>({ top: 0, right: 0 });
+
+  const copyTriggerRef = useRef<HTMLButtonElement>(null);
+  const shareTriggerRef = useRef<HTMLButtonElement>(null);
+  const copyDropRef = useRef<HTMLDivElement>(null);
+  const shareDropRef = useRef<HTMLDivElement>(null);
 
   const displayTime = format(new Date(article.publishedAt), 'yyyy.MM.dd HH:mm', { locale: ko });
   const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
@@ -47,15 +63,24 @@ export default function NewsCard({ article, isFirst, isLast }: NewsCardProps) {
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (copyWrapRef.current && !copyWrapRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!copyTriggerRef.current?.contains(target) && !copyDropRef.current?.contains(target)) {
         setShowCopyMenu(false);
       }
-      if (shareWrapRef.current && !shareWrapRef.current.contains(event.target as Node)) {
+      if (!shareTriggerRef.current?.contains(target) && !shareDropRef.current?.contains(target)) {
         setShowShareMenu(false);
       }
     }
+    function handleScroll() {
+      setShowCopyMenu(false);
+      setShowShareMenu(false);
+    }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
   }, []);
 
   const handleCopy = (mode: 'url' | 'both') => {
@@ -132,65 +157,85 @@ export default function NewsCard({ article, isFirst, isLast }: NewsCardProps) {
           </div>
 
           <div className="flex items-center justify-end gap-2 shrink-0">
-            {/* Copy dropdown */}
-            <div ref={copyWrapRef} className="relative">
-              <button
-                onClick={() => { setShowCopyMenu(v => !v); setShowShareMenu(false); }}
-                className="p-2 text-gray-400 hover:text-brand bg-gray-50 dark:bg-gray-700 rounded-full transition-colors"
-                title="복사"
-              >
-                <Link2 className="w-4 h-4" />
-              </button>
-              {showCopyMenu && (
-                <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-[200] animate-in fade-in zoom-in-95 duration-150 origin-top-right">
-                  <p className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">링크 복사</p>
-                  <div className="p-1">
-                    <button onClick={() => handleCopy('url')} className={DROPDOWN_ITEM}>단순 링크 복사</button>
-                    <button onClick={() => handleCopy('both')} className={DROPDOWN_ITEM}>제목 + 링크 복사</button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Copy button */}
+            <button
+              ref={copyTriggerRef}
+              onClick={() => {
+                setCopyPos(calcDropdownPos(copyTriggerRef, 100));
+                setShowCopyMenu(v => !v);
+                setShowShareMenu(false);
+              }}
+              className="p-2 text-gray-400 hover:text-brand bg-gray-50 dark:bg-gray-700 rounded-full transition-colors"
+              title="복사"
+            >
+              <Link2 className="w-4 h-4" />
+            </button>
 
-            {/* Share dropdown */}
-            <div ref={shareWrapRef} className="relative">
-              <button
-                onClick={() => { setShowShareMenu(v => !v); setShowCopyMenu(false); }}
-                className="p-2 text-gray-400 hover:text-brand bg-gray-50 dark:bg-gray-700 rounded-full transition-colors"
-                title="공유"
-              >
-                <Share2 className="w-4 h-4" />
-              </button>
-              {showShareMenu && (
-                <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-[200] animate-in fade-in zoom-in-95 duration-150 origin-top-right">
-                  <p className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">공유하기</p>
-                  <div className="p-1">
-                    {isMobile && (
-                      <button onClick={handleKakaoShare} className={DROPDOWN_ITEM}>
-                        <KakaoIcon />
-                        카카오톡
-                      </button>
-                    )}
-                    <a
-                      href={`https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(`${article.title}\n${article.url}`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => {
-                        navigator.clipboard.writeText(`${article.title}\n${article.url}`).catch(() => {});
-                        setShowShareMenu(false);
-                      }}
-                      className={DROPDOWN_ITEM}
-                    >
-                      <TeamsIcon />
-                      Teams
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Share button */}
+            <button
+              ref={shareTriggerRef}
+              onClick={() => {
+                setSharePos(calcDropdownPos(shareTriggerRef, 120));
+                setShowShareMenu(v => !v);
+                setShowCopyMenu(false);
+              }}
+              className="p-2 text-gray-400 hover:text-brand bg-gray-50 dark:bg-gray-700 rounded-full transition-colors"
+              title="공유"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Copy dropdown — rendered in document.body to escape overflow clipping */}
+      {showCopyMenu && createPortal(
+        <div
+          ref={copyDropRef}
+          style={{ position: 'fixed', ...copyPos, zIndex: 9999 }}
+          className={cn("w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in-95 duration-150", copyPos.bottom != null ? "origin-bottom-right" : "origin-top-right")}
+        >
+          <p className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">링크 복사</p>
+          <div className="p-1">
+            <button onClick={() => handleCopy('url')} className={DROPDOWN_ITEM}>단순 링크 복사</button>
+            <button onClick={() => handleCopy('both')} className={DROPDOWN_ITEM}>제목 + 링크 복사</button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Share dropdown — rendered in document.body to escape overflow clipping */}
+      {showShareMenu && createPortal(
+        <div
+          ref={shareDropRef}
+          style={{ position: 'fixed', ...sharePos, zIndex: 9999 }}
+          className={cn("w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in-95 duration-150", sharePos.bottom != null ? "origin-bottom-right" : "origin-top-right")}
+        >
+          <p className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">공유하기</p>
+          <div className="p-1">
+            {isMobile && (
+              <button onClick={handleKakaoShare} className={DROPDOWN_ITEM}>
+                <KakaoIcon />
+                카카오톡
+              </button>
+            )}
+            <a
+              href={`https://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(`${article.title}\n${article.url}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                navigator.clipboard.writeText(`${article.title}\n${article.url}`).catch(() => {});
+                setShowShareMenu(false);
+              }}
+              className={DROPDOWN_ITEM}
+            >
+              <TeamsIcon />
+              Teams
+            </a>
+          </div>
+        </div>,
+        document.body
+      )}
     </article>
   );
 }
