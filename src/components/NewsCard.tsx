@@ -193,7 +193,7 @@ export default function NewsCard({ article, isFirst, isLast }: NewsCardProps) {
         <div
           ref={copyDropRef}
           style={{ position: 'fixed', ...copyPos, zIndex: 9999 }}
-          className="w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in-95 duration-150 origin-top-right"
+          className={cn("w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in-95 duration-150", copyPos.bottom != null ? "origin-bottom-right" : "origin-top-right")}
         >
           <p className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">링크 복사</p>
           <div className="p-1">
@@ -209,7 +209,7 @@ export default function NewsCard({ article, isFirst, isLast }: NewsCardProps) {
         <div
           ref={shareDropRef}
           style={{ position: 'fixed', ...sharePos, zIndex: 9999 }}
-          className="w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in-95 duration-150 origin-top-right"
+          className={cn("w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in-95 duration-150", sharePos.bottom != null ? "origin-bottom-right" : "origin-top-right")}
         >
           <p className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">공유하기</p>
           <div className="p-1">
