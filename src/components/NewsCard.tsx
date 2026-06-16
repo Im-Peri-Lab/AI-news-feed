@@ -29,15 +29,14 @@ function TeamsIcon() {
 
 const DROPDOWN_ITEM = "w-full text-left px-3 py-2.5 text-[13px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2.5";
 
-interface DropdownPos { top: number; right: number; }
+interface DropdownPos { top?: number; bottom?: number; right: number; }
 
 function calcDropdownPos(triggerRef: { current: HTMLElement | null }, dropHeight: number): DropdownPos {
   const rect = triggerRef.current!.getBoundingClientRect();
   const openUp = rect.bottom + dropHeight > window.innerHeight - 16;
-  return {
-    top: openUp ? rect.top - dropHeight - 4 : rect.bottom + 4,
-    right: window.innerWidth - rect.right,
-  };
+  return openUp
+    ? { bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right }
+    : { top: rect.bottom + 4, right: window.innerWidth - rect.right };
 }
 
 interface NewsCardProps {
