@@ -38,8 +38,16 @@ export default function NewsCard({ article, isFirst, isLast }: NewsCardProps) {
   const { tags, getCategoryColor } = useTags();
   const [showCopyMenu, setShowCopyMenu] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [copyMenuUp, setCopyMenuUp] = useState(false);
+  const [shareMenuUp, setShareMenuUp] = useState(false);
   const copyWrapRef = useRef<HTMLDivElement>(null);
   const shareWrapRef = useRef<HTMLDivElement>(null);
+
+  const shouldOpenUp = (ref: { current: HTMLDivElement | null }, estimatedHeight = 120) => {
+    if (!ref.current) return false;
+    const { bottom } = ref.current.getBoundingClientRect();
+    return bottom + estimatedHeight > window.innerHeight - 16;
+  };
 
   const displayTime = format(new Date(article.publishedAt), 'yyyy.MM.dd HH:mm', { locale: ko });
   const redirectUrl = `${window.location.origin}/api/r?u=${encodeURIComponent(article.url)}`;
@@ -135,14 +143,14 @@ export default function NewsCard({ article, isFirst, isLast }: NewsCardProps) {
             {/* Copy dropdown */}
             <div ref={copyWrapRef} className="relative">
               <button
-                onClick={() => { setShowCopyMenu(v => !v); setShowShareMenu(false); }}
+                onClick={() => { setCopyMenuUp(shouldOpenUp(copyWrapRef, 100)); setShowCopyMenu(v => !v); setShowShareMenu(false); }}
                 className="p-2 text-gray-400 hover:text-brand bg-gray-50 dark:bg-gray-700 rounded-full transition-colors"
                 title="복사"
               >
                 <Link2 className="w-4 h-4" />
               </button>
               {showCopyMenu && (
-                <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-[200] animate-in fade-in zoom-in-95 duration-150 origin-top-right">
+                <div className={cn("absolute right-0 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-[200] animate-in fade-in zoom-in-95 duration-150", copyMenuUp ? "bottom-full mb-1 origin-bottom-right" : "top-full mt-1 origin-top-right")}>
                   <p className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">링크 복사</p>
                   <div className="p-1">
                     <button onClick={() => handleCopy('url')} className={DROPDOWN_ITEM}>단순 링크 복사</button>
@@ -155,14 +163,14 @@ export default function NewsCard({ article, isFirst, isLast }: NewsCardProps) {
             {/* Share dropdown */}
             <div ref={shareWrapRef} className="relative">
               <button
-                onClick={() => { setShowShareMenu(v => !v); setShowCopyMenu(false); }}
+                onClick={() => { setShareMenuUp(shouldOpenUp(shareWrapRef, 120)); setShowShareMenu(v => !v); setShowCopyMenu(false); }}
                 className="p-2 text-gray-400 hover:text-brand bg-gray-50 dark:bg-gray-700 rounded-full transition-colors"
                 title="공유"
               >
                 <Share2 className="w-4 h-4" />
               </button>
               {showShareMenu && (
-                <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-[200] animate-in fade-in zoom-in-95 duration-150 origin-top-right">
+                <div className={cn("absolute right-0 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden z-[200] animate-in fade-in zoom-in-95 duration-150", shareMenuUp ? "bottom-full mb-1 origin-bottom-right" : "top-full mt-1 origin-top-right")}>
                   <p className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">공유하기</p>
                   <div className="p-1">
                     {isMobile && (
