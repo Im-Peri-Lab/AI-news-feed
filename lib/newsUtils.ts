@@ -48,6 +48,7 @@ export function decodeHtmlEntities(str: string): string {
 export function normalizeTitle(title: string): string {
   return title
     .replace(/<[^>]+>/g, '')
+    .replace(/\.{2,}$|…+$/, '') // Google RSS 말줄임 제거
     .replace(/[^가-힣a-zA-Z0-9]/g, '')
     .toLowerCase()
     .slice(0, 30);
@@ -305,13 +306,21 @@ export function processNaverItem(item: NaverNewsItem, tagSpecs: TagSpec[]) {
 
 export function makeDeduper() {
   const seenIds = new Set<string>();
-  const seenTitles = new Set<string>();
+  const seenTitleKeys: string[] = [];
 
   return function add(article: { id: string; title: string }): boolean {
+    if (seenIds.has(article.id)) return false;
     const titleKey = normalizeTitle(article.title);
-    if (seenIds.has(article.id) || seenTitles.has(titleKey)) return false;
+    // 정확 일치 또는 prefix 겹침(≥20자) — Google RSS 말줄임 잘림 대응
+    const isDup = seenTitleKeys.some(seen => {
+      if (seen === titleKey) return true;
+      const shorter = seen.length <= titleKey.length ? seen : titleKey;
+      const longer = seen.length <= titleKey.length ? titleKey : seen;
+      return shorter.length >= 20 && longer.startsWith(shorter);
+    });
+    if (isDup) return false;
     seenIds.add(article.id);
-    seenTitles.add(titleKey);
+    seenTitleKeys.push(titleKey);
     return true;
   };
 }
