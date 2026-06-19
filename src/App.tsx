@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Header from './components/Header';
 import NewsFeed from './components/NewsFeed';
 import TagManager from './components/TagManager';
+import ScrollToTop from './components/ScrollToTop';
 import { TagsProvider } from './contexts/TagsContext';
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
         </div>
       </div>
       {showTagManager && <TagManager onClose={() => setShowTagManager(false)} />}
+      <ScrollToTop />
     </TagsProvider>
   );
 }
