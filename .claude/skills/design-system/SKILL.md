@@ -28,11 +28,11 @@ bg-{color}-50  /  text-{color}-700  /  border-{color}-200
 
 ## 앱 아이콘 / 파비콘
 
-아이콘은 **아트가 두 계열**이고 관리 방식도 다르다. 원본은 둘 다 `assets/`에 두고 **`public/`에 두지 말 것** — `public/` 하위는 전부 배포된다.
+아이콘은 **아트가 두 계열**이고 관리 방식도 다르다. 원본은 둘 다 `assets/`에 두고 **`public/`에 두지 말 것** — `public/` 하위는 전부 배포된다. 원본 파일명에는 **해상도를 접미로 붙인다**(`-1254`, `-256`).
 
 | 파일 | 크기 | 아트 | 원본 | 관리 |
 |---|---|---|---|---|
-| `public/apple-touch-icon.png` | 180 | 워드마크 | `assets/icon-source.png` (1254²) | 스크립트 생성 |
+| `public/apple-touch-icon.png` | 180 | 워드마크 | `assets/icon-source-1254.png` | 스크립트 생성 |
 | `public/icon-192.png` | 192 | 워드마크 | 〃 | 스크립트 생성 |
 | `public/icon-512.png` | 512 | 워드마크 | 〃 | 스크립트 생성 |
 | `public/favicon-32.png` | 32 | 네이비 타일 + 핑크 `A` | `assets/favicon-source-256.png` (256²) | **손으로 관리** |

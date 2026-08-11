@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""assets/icon-source.png → public/ 워드마크 아이콘 3종 생성.
+"""assets/icon-source-1254.png → public/ 워드마크 아이콘 3종 생성.
 
 원본은 raster 렌더라 색이 ±1~2 흔들리고 포인트 컬러가 브랜드 토큰과
 어긋나 있다. 그래서 단순 리사이즈가 아니라 팔레트를 의도한 값으로
@@ -19,7 +19,7 @@ import os
 import struct
 import zlib
 
-SRC = 'assets/icon-source.png'
+SRC = 'assets/icon-source-1254.png'
 OUTDIR = 'public'
 
 # 목표 팔레트 — 메인화면 로고와 동일하게 맞춘다
