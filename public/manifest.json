@@ -1,0 +1,23 @@
+{
+  "name": "AI/AX 뉴스 피드",
+  "short_name": "AI/AX 뉴스",
+  "description": "AI 및 AX 관련 최신 뉴스를 광역 수집하고 관심 태그별로 탐색하는 뉴스 피드 앱",
+  "lang": "ko",
+  "start_url": "/",
+  "theme_color": "#ff2e98",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
