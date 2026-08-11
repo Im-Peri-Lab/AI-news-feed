@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""assets/icon-source.png → public/ 아이콘 5종 생성.
+"""assets/icon-source.png → public/ 워드마크 아이콘 3종 생성.
 
 원본은 raster 렌더라 색이 ±1~2 흔들리고 포인트 컬러가 브랜드 토큰과
 어긋나 있다. 그래서 단순 리사이즈가 아니라 팔레트를 의도한 값으로
@@ -7,6 +7,11 @@
 
   글씨   #111827  = Tailwind gray-900   (Header.tsx의 text-gray-900)
   포인트 #ff2e98  = --color-brand       (src/index.css)
+
+파비콘(favicon-32.png / favicon-16.png)은 **이 스크립트가 건드리지 않는다.**
+워드마크가 아니라 별도 디자인(네이비 타일 + 핑크 A)이고 원본은
+assets/favicon-source-1024.png 이다. 손으로 관리하는 파일이므로 여기에
+추가하면 덮어써서 날아간다.
 
 의존성 없음 (ImageMagick·PIL 불필요). 실행:  python3 scripts/generate-icons.py
 """
@@ -31,16 +36,11 @@ SRC_POINT = (251, 20, 118)    # #FB1476 — 브랜드 컬러가 아니라 이걸
 # 워드마크: 로고 중심 기준 정사각형. 가로폭 88%를 차지하고 원본의
 # 좌우 여백 비대칭(125px/93px)이 보정된다.
 WORDMARK = dict(left=54, top=40, size=1177)
-# 포인트 슬래시 bbox. 슬래시는 위쪽이 오른쪽으로 기울어 AX의 'A' 발과
-# x축 범위가 겹치므로, 사각 크롭 후 픽셀 단위로 글씨색을 걷어낸다.
-SLASH = dict(left=526, top=395, w=156, h=299, square=383)
 
 TARGETS = [
-    ('apple-touch-icon.png', 180, 'wordmark'),
-    ('icon-192.png', 192, 'wordmark'),
-    ('icon-512.png', 512, 'wordmark'),
-    ('favicon-32.png', 32, 'slash'),
-    ('favicon-16.png', 16, 'slash'),
+    ('apple-touch-icon.png', 180),
+    ('icon-192.png', 192),
+    ('icon-512.png', 512),
 ]
 
 
@@ -166,40 +166,6 @@ def crop(rows, left, top, w, h):
     return [bytearray(rows[top + y][left * 3:(left + w) * 3]) for y in range(h)]
 
 
-def pad_square(rows, w, h, side):
-    """배경색으로 가운데 정렬 패딩."""
-    out = []
-    x0 = (side - w) // 2
-    y0 = (side - h) // 2
-    blank = bytearray(bytes(BG) * side)
-    for y in range(side):
-        if y < y0 or y >= y0 + h:
-            out.append(bytearray(blank))
-            continue
-        line = bytearray(blank)
-        line[x0 * 3:(x0 + w) * 3] = rows[y - y0]
-        out.append(line)
-    return out
-
-
-def isolate_point(rows, w, h):
-    """포인트 색만 남기고 글씨색 조각을 배경으로 치환.
-
-    배경(흰색)→POINT 블렌드는 r이 255로 유지되고, 배경→INK 블렌드는
-    r이 함께 떨어진다. 그래서 r만 보면 두 잉크가 구분된다.
-    """
-    out = []
-    for y in range(h):
-        src = rows[y]
-        line = bytearray(src)
-        for x in range(w):
-            o = x * 3
-            if src[o] < 250:
-                line[o], line[o + 1], line[o + 2] = BG
-        out.append(line)
-    return out
-
-
 def downscale(rows, w, h, n):
     """면적 평균 축소."""
     out = []
@@ -238,23 +204,15 @@ def main():
           % (INK + POINT))
     rows = recolor(w, h, rows)
 
-    wm = crop(rows, WORDMARK['left'], WORDMARK['top'],
-              WORDMARK['size'], WORDMARK['size'])
-    wm_side = WORDMARK['size']
+    side = WORDMARK['size']
+    wm = crop(rows, WORDMARK['left'], WORDMARK['top'], side, side)
 
-    sl = crop(rows, SLASH['left'], SLASH['top'], SLASH['w'], SLASH['h'])
-    sl = isolate_point(sl, SLASH['w'], SLASH['h'])
-    sl = pad_square(sl, SLASH['w'], SLASH['h'], SLASH['square'])
-    sl_side = SLASH['square']
-
-    for name, size, kind in TARGETS:
-        base, side = (wm, wm_side) if kind == 'wordmark' else (sl, sl_side)
-        small = downscale(base, side, side, size)
+    for name, size in TARGETS:
+        small = downscale(wm, side, side, size)
         path = os.path.join(OUTDIR, name)
         encode_png(path, size, size, small)
-        print('  %-24s %3dx%-3d  %6d B  (%s)'
-              % (path, size, size, os.path.getsize(path), kind))
-    print('완료.')
+        print('  %-24s %3dx%-3d  %6d B' % (path, size, size, os.path.getsize(path)))
+    print('완료. (favicon-32/16은 별도 디자인이므로 생성 대상 아님)')
 
 
 if __name__ == '__main__':
