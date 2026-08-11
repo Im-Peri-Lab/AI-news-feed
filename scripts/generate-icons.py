@@ -10,7 +10,7 @@
 
 파비콘(favicon-32.png / favicon-16.png)은 **이 스크립트가 건드리지 않는다.**
 워드마크가 아니라 별도 디자인(네이비 타일 + 핑크 A)이고 원본은
-assets/favicon-source-1024.png 이다. 손으로 관리하는 파일이므로 여기에
+assets/favicon-source-256.png 이다. 손으로 관리하는 파일이므로 여기에
 추가하면 덮어써서 날아간다.
 
 의존성 없음 (ImageMagick·PIL 불필요). 실행:  python3 scripts/generate-icons.py
