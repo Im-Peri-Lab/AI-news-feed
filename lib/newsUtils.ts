@@ -60,8 +60,13 @@ export function isExactMatch(title: string, keyword: string): boolean {
 // '시스템반도체'의 반도체) 앞 경계를 요구하면 정상 매칭을 잃는다.
 export function isPartialMatch(title: string, keyword: string): boolean {
   if (!keyword) return false;
+  const escaped = escapeRe(keyword);
   if (!ALNUM.test(keyword[0])) return title.toLowerCase().includes(keyword.toLowerCase());
-  return new RegExp(`(?<![a-zA-Z0-9])${escapeRe(keyword)}`, 'i').test(title);
+  if (new RegExp(`(?<![a-zA-Z0-9])${escaped}`, 'i').test(title)) return true;
+  // camelCase 예외: 소문자 뒤의 대문자 약어는 새 단어의 시작으로 본다
+  // ('sLLM'·'vLLM'의 LLM, 'eGPU'의 GPU). 대소문자를 구분해 검사하므로
+  // 'SKT'의 KT(앞이 대문자)나 'risk'의 sk(소문자)는 여기 걸리지 않는다.
+  return /^[A-Z]/.test(keyword) && new RegExp(`(?<=[a-z])${escaped}`).test(title);
 }
 
 export function decodeHtmlEntities(str: string): string {
