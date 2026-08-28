@@ -29,10 +29,44 @@ export function generateId(url: string): string {
   return crypto.createHash('md5').update(url).digest('hex');
 }
 
+const HANGUL = /[가-힣]/;
+const ALNUM = /[a-zA-Z0-9]/;
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// 경계는 키워드와 같은 문자 체계에서만 따진다. 한국어는 교착어라 키워드 뒤에
+// 조사와 복합어가 그대로 붙으므로('KT가', '구글과', '삼성전자'), 뒤 경계를
+// 한글까지 막으면 정상 매칭이 대량으로 깨진다.
+function boundary(ch: string, side: 'before' | 'after'): string {
+  const cls = HANGUL.test(ch) ? '가-힣' : ALNUM.test(ch) ? 'a-zA-Z0-9' : '';
+  if (!cls) return '';
+  return side === 'before' ? `(?<![${cls}])` : `(?![${cls}])`;
+}
+
 export function isExactMatch(title: string, keyword: string): boolean {
-  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(?<![a-zA-Z0-9가-힣])${escaped}(?![a-zA-Z0-9가-힣])`, 'i');
+  if (!keyword) return false;
+  const regex = new RegExp(
+    `${boundary(keyword[0], 'before')}${escapeRe(keyword)}${boundary(keyword[keyword.length - 1], 'after')}`,
+    'i'
+  );
   return regex.test(title);
+}
+
+// 부분 매칭. 영문·숫자로 시작하는 키워드에만 앞 경계를 요구한다. 영문 약어는
+// 앞에 글자가 붙으면 다른 뜻이 되지만('SKT'는 KT가 아니고 'TASK'는 SK가 아니다),
+// 한글은 앞에 붙어도 뜻이 이어지는 복합어가 많아('신한투자증권'의 증권,
+// '시스템반도체'의 반도체) 앞 경계를 요구하면 정상 매칭을 잃는다.
+export function isPartialMatch(title: string, keyword: string): boolean {
+  if (!keyword) return false;
+  const escaped = escapeRe(keyword);
+  if (!ALNUM.test(keyword[0])) return title.toLowerCase().includes(keyword.toLowerCase());
+  if (new RegExp(`(?<![a-zA-Z0-9])${escaped}`, 'i').test(title)) return true;
+  // camelCase 예외: 소문자 뒤의 대문자 약어는 새 단어의 시작으로 본다
+  // ('sLLM'·'vLLM'의 LLM, 'eGPU'의 GPU). 대소문자를 구분해 검사하므로
+  // 'SKT'의 KT(앞이 대문자)나 'risk'의 sk(소문자)는 여기 걸리지 않는다.
+  return /^[A-Z]/.test(keyword) && new RegExp(`(?<=[a-z])${escaped}`).test(title);
 }
 
 export function decodeHtmlEntities(str: string): string {
@@ -106,9 +140,9 @@ export function isAiRelated(title: string): boolean {
 }
 
 // ── Tag matching ──────────────────────────────────────────────────────────────
-// A tag matches when any keyword hits exactly (word-boundary). A partial
-// (substring) match also counts unless an excludeKeyword is present. Shared by
-// both collectors so Google and Naver articles tag identically.
+// A tag matches when any keyword hits exactly (word-boundary). A partial match
+// also counts unless an excludeKeyword is present. Shared by both collectors so
+// Google and Naver articles tag identically.
 export function matchTags(title: string, tagSpecs: TagSpec[]): {
   tags: string[];
   categories: string[];
@@ -120,8 +154,8 @@ export function matchTags(title: string, tagSpecs: TagSpec[]): {
 
   tagSpecs.forEach(tag => {
     const hasExactMatch = tag.keywords.some(kw => isExactMatch(title, kw));
-    const hasPartialMatch = !hasExactMatch && tag.keywords.some(kw => title.toLowerCase().includes(kw.toLowerCase()));
-    const isExcluded = (tag.excludeKeywords ?? []).some(kw => title.toLowerCase().includes(kw.toLowerCase()));
+    const hasPartialMatch = !hasExactMatch && tag.keywords.some(kw => isPartialMatch(title, kw));
+    const isExcluded = (tag.excludeKeywords ?? []).some(kw => isPartialMatch(title, kw));
     const isMatched = hasExactMatch || (hasPartialMatch && !isExcluded);
     if (isMatched) {
       if (!tags.includes(tag.name)) tags.push(tag.name);
